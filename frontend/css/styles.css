@@ -632,7 +632,7 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
    Keyboard reports a fine pointer, which would drop it out of this layout.
    A wide desktop window matches too, and the split reads better there anyway.
 ═══════════════════════════════════════════════════════════════════════════ */
-@media (orientation: landscape) and (min-width: 900px) and (min-height: 600px) {
+@media (orientation: landscape) and (min-width: 640px) and (min-height: 360px) {
   /* MUST stay scoped to .active. `#screen-game` alone is an id selector, so its
      display would beat `.screen { display: none }` and pin the game screen
      on-screen over every other screen. */
@@ -652,10 +652,13 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   .idle-indicator { grid-area: idle; position: static; transform: none; width: 100%; }
   .game-bottombar { grid-area: pad; }
 
-  /* Left: the board takes the full column height, bounded by the shorter side. */
+  /* Left: the board fills the column, bounded by whichever side runs out first.
+     The horizontal term has to respect the right column's 260px floor — at
+     narrow widths (iPhone landscape) the column is wider than 34%, so a plain
+     66vw would overflow into it. */
   .sudoku-grid {
     --grid-v: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    --grid-h: calc(64vw - 32px);
+    --grid-h: min(calc(66vw - 40px), calc(100vw - 300px));
     width:  min(var(--grid-v), var(--grid-h), 760px);
     height: min(var(--grid-v), var(--grid-h), 760px);
   }
@@ -692,11 +695,14 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
     border-top: none;
     border-left: 1px solid var(--border);
   }
+  /* A 3x3 keypad is about as tall as it is wide, so on short viewports its
+     width has to be driven by the height left over after the status panel and
+     hint button — otherwise it overflows an iPhone in landscape. */
   .numpad {
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     width: 100%;
-    max-width: 340px;
+    max-width: min(340px, calc(100dvh - 190px));
     flex: 0 0 auto;
   }
   .num-btn { font-size: 26px; border-radius: 14px; aspect-ratio: 1; height: auto; }
@@ -715,6 +721,25 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
     opacity: 0.75;
   }
   .hint-btn:hover { opacity: 1; }
+}
+
+/* Phone-height landscape: same split, but ~430px of height instead of ~800px,
+   so the status panel has to stop eating the keypad's room. */
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 520px) {
+  .game-topbar {
+    gap: 8px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 8px;
+  }
+  .topbar-center { padding: 4px 0; border-radius: 8px; }
+  .topbar-center .score-value { font-size: 20px; }
+  .topbar-center .score-label { font-size: 9px; }
+  /* 44px tap targets are right on a phone in portrait, but three stacked rows
+     of them don't fit 430px of landscape height. */
+  .game-topbar .btn { min-height: 34px; padding: 4px 10px; }
+  .game-bottombar { gap: 8px; padding: 0 14px calc(10px + env(safe-area-inset-bottom)); }
+  .numpad { gap: 6px; max-width: min(340px, calc(100dvh - 230px)); }
+  .num-btn { font-size: 19px; border-radius: 10px; }
+  .hint-btn { height: 36px; margin-top: 10px; min-width: 88px; font-size: 15px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
