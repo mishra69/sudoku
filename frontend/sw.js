@@ -1,7 +1,7 @@
 // Stamped by deploy.sh. Deriving the cache name from it means every deploy
 // gets a fresh cache automatically — no more hand-bumping a version number
 // and shipping stale CSS when you forget.
-const VERSION = '20260808_1111';
+const VERSION = '20260808_1121';
 const CACHE = 'sudoku-' + VERSION;
 const SHELL = [
   // '/' only: Workers Static Assets 307-redirects /index.html to /, and the
