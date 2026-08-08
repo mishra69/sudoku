@@ -1,11 +1,11 @@
 // Auth routes: Google sign-in.
 //
 // The client sends the ID token ("credential") that Google Identity Services
-// hands it. We verify that JWT against Google's public keys, then mint our own
-// short session token. Google's token is never stored or reused.
+// hands it. We verify that JWT, then mint our own session token. Google's token
+// is never stored or reused. Verification itself lives in lib/oidc.js — it is
+// provider-agnostic and has nothing app-specific in it.
 
-const GOOGLE_JWKS = 'https://www.googleapis.com/oauth2/v3/certs';
-const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+import { verifyIdToken, GOOGLE } from '../lib/oidc.js';
 
 export async function handleAuth(path, request, env) {
   // The client needs the OAuth client id to initialise Google's SDK. It isn't
@@ -30,7 +30,7 @@ async function googleSignIn({ credential }, env) {
 
   let claims;
   try {
-    claims = await verifyGoogleIdToken(credential, env.GOOGLE_CLIENT_ID);
+    claims = await verifyIdToken(credential, { ...GOOGLE, audience: env.GOOGLE_CLIENT_ID });
   } catch (e) {
     // Don't leak which check failed — it's all "we don't trust this token".
     console.warn('google id token rejected:', e.message);
@@ -57,63 +57,6 @@ async function googleSignIn({ credential }, env) {
 
   const token = await makeToken(player.id, env.TOKEN_SECRET);
   return json({ token, playerId: player.id, name: player.name, picture: player.picture });
-}
-
-// ── Google ID token verification ──────────────────────────────────────────
-
-async function verifyGoogleIdToken(credential, clientId) {
-  const parts = credential.split('.');
-  if (parts.length !== 3) throw new Error('malformed jwt');
-  const [rawHeader, rawPayload, rawSig] = parts;
-
-  const header = JSON.parse(b64urlToString(rawHeader));
-  const claims = JSON.parse(b64urlToString(rawPayload));
-
-  if (header.alg !== 'RS256') throw new Error('unexpected alg ' + header.alg);
-
-  // Google rotates these keys; the edge cache keeps it to roughly one fetch
-  // per hour per colo rather than one per sign-in.
-  const jwks = await fetch(GOOGLE_JWKS, { cf: { cacheTtl: 3600, cacheEverything: true } })
-    .then(r => r.json());
-  const jwk = jwks.keys.find(k => k.kid === header.kid);
-  if (!jwk) throw new Error('unknown signing key');
-
-  const key = await crypto.subtle.importKey(
-    'jwk',
-    { kty: jwk.kty, n: jwk.n, e: jwk.e },
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
-
-  const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    b64urlToBytes(rawSig),
-    new TextEncoder().encode(`${rawHeader}.${rawPayload}`)
-  );
-  if (!valid) throw new Error('bad signature');
-
-  // A valid signature only proves Google issued it — these checks prove it was
-  // issued for THIS app and is still current.
-  if (!GOOGLE_ISSUERS.includes(claims.iss)) throw new Error('bad issuer');
-  if (claims.aud !== clientId) throw new Error('bad audience');
-  if (!claims.sub) throw new Error('no subject');
-  const now = Math.floor(Date.now() / 1000);
-  if (claims.exp <= now) throw new Error('expired');
-  if (claims.iat && claims.iat > now + 300) throw new Error('issued in the future');
-
-  return claims;
-}
-
-function b64urlToBytes(s) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=');
-  const bin = atob(b64);
-  return Uint8Array.from(bin, c => c.charCodeAt(0));
-}
-
-function b64urlToString(s) {
-  return new TextDecoder().decode(b64urlToBytes(s));
 }
 
 // ── Session tokens ────────────────────────────────────────────────────────
