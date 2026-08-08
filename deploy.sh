@@ -84,10 +84,27 @@ fi
 
 # ── Optional git bookkeeping ───────────────────────────────────────────────
 if [ "${GIT_COMMIT:-0}" = "1" ]; then
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git add ${STAMP_FILES:-} && git commit -m "deploy $VERSION" && git push
-  else
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "warning: GIT_COMMIT=1 but this is not a git repo — skipping" >&2
+  else
+    git add ${STAMP_FILES:-}
+    # The deploy already succeeded by this point, so nothing below is allowed
+    # to fail the script. Redeploying inside the same minute leaves the stamp
+    # unchanged, which would otherwise make `git commit` exit non-zero.
+    if git diff --cached --quiet; then
+      echo "==> git: stamp unchanged, nothing to commit"
+    elif git commit -q -m "deploy $VERSION"; then
+      echo "==> git: committed $VERSION"
+      if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "==> git: no origin remote, skipping push"
+      elif git push -q; then
+        echo "==> git: pushed"
+      else
+        echo "warning: git push failed — the deploy is live, the commit is local" >&2
+      fi
+    else
+      echo "warning: git commit failed — the deploy is live regardless" >&2
+    fi
   fi
 fi
 
