@@ -36,21 +36,14 @@ const API = {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  async register(name, pin) {
-    const data = await this._rawFetch('POST', '/auth/register', { name, pin });
+  // Exchange a Google ID token for our own session token.
+  async googleSignIn(credential) {
+    const data = await this._rawFetch('POST', '/auth/google', { credential });
     this._token = data.token;
     Storage.set('authToken', data.token);
     Storage.set('playerId', data.playerId);
-    Storage.set('playerName', name);
-    return data;
-  },
-
-  async login(name, pin) {
-    const data = await this._rawFetch('POST', '/auth/login', { name, pin });
-    this._token = data.token;
-    Storage.set('authToken', data.token);
-    Storage.set('playerId', data.playerId);
-    Storage.set('playerName', name);
+    Storage.set('playerName', data.name);
+    if (data.picture) Storage.set('playerPicture', data.picture);
     return data;
   },
 
@@ -64,6 +57,7 @@ const API = {
     Storage.remove('authToken');
     Storage.remove('playerId');
     Storage.remove('playerName');
+    Storage.remove('playerPicture');
   },
 
   // ── Scores ────────────────────────────────────────────────────────────────

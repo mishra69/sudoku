@@ -14,3 +14,10 @@ database_name = "sudoku-db"
 database_id = "98f600ee-373a-4c78-b853-0ff49238e109"
 
 # Set TOKEN_SECRET via: wrangler secret put TOKEN_SECRET
+
+[vars]
+# OAuth 2.0 Web application client ID from console.cloud.google.com.
+# Not a secret — it ships to the browser — so it lives in config, not secrets.
+# Authorized JavaScript origins must include the deployed URL and
+# http://localhost:8788 for local dev.
+GOOGLE_CLIENT_ID = "229407326658-fe02tpm00tc35884qpfh119kehj8ss5v.apps.googleusercontent.com"

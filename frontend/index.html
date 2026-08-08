@@ -26,17 +26,9 @@
 <div id="screen-login" class="screen active">
   <div class="screen-card login-card">
     <h1 class="app-title">Sudoku</h1>
-    <p class="subtitle">Enter your name and 4-digit PIN</p>
-    <div class="form-group">
-      <label for="login-name">Name</label>
-      <input id="login-name" type="text" placeholder="Your name" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label for="login-pin">PIN</label>
-      <input id="login-pin" type="password" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" autocomplete="off" />
-    </div>
+    <p class="subtitle">Sign in to save your scores</p>
+    <div id="google-btn" class="google-btn-slot"></div>
     <p id="login-error" class="error-msg" style="display:none;"></p>
-    <button class="btn btn-primary btn-lg" onclick="App.handleLogin()">Play</button>
     <p class="version-tag" data-version></p>
   </div>
 </div>
@@ -287,7 +279,11 @@
 <script src="/js/ui.js"></script>
 <script src="/js/animations.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
 <script src="/js/app.js"></script>
+<!-- Google Identity Services. Cross-origin and unavailable offline by nature;
+     the service worker ignores it and the rest of the app doesn't depend on it. -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/js/pwa-install.js"></script>
 
 <script>
@@ -296,7 +292,9 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  PWAInstall.init({ appName: 'Sudoku', remember: 7 });
+  // autoShow off: the sheet would otherwise cover the sign-in button. App
+  // triggers it once the player is actually signed in and on the menu.
+  PWAInstall.init({ appName: 'Sudoku', remember: 7, autoShow: false });
 </script>
 
 </body>

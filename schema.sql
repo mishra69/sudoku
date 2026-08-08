@@ -1,11 +1,16 @@
 -- Sudoku App — Cloudflare D1 Schema
+--
+-- Players authenticate with Google. google_sub is Google's stable, immutable
+-- subject id — email is NOT a safe key, since people change theirs.
 
 CREATE TABLE IF NOT EXISTS players (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT    NOT NULL,
-  pin_hash   TEXT    NOT NULL,
-  salt       TEXT    NOT NULL,
-  created_at TEXT    DEFAULT (datetime('now'))
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  google_sub  TEXT    NOT NULL UNIQUE,
+  email       TEXT,
+  name        TEXT    NOT NULL,
+  picture     TEXT,
+  created_at  TEXT    DEFAULT (datetime('now')),
+  last_seen_at TEXT   DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS scores (
@@ -45,3 +50,4 @@ CREATE TABLE IF NOT EXISTS saved_games (
 CREATE INDEX IF NOT EXISTS idx_scores_player ON scores(player_id);
 CREATE INDEX IF NOT EXISTS idx_scores_difficulty ON scores(difficulty);
 CREATE INDEX IF NOT EXISTS idx_scores_completed_at ON scores(completed_at);
+CREATE INDEX IF NOT EXISTS idx_players_google_sub ON players(google_sub);

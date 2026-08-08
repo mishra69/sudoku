@@ -73,6 +73,14 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* Google's button renders itself into this slot; we only position it. */
+.google-btn-slot {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  margin: 20px 0 4px;
+}
+
 /* Build stamp — set from CONFIG.VERSION, which deploy.sh writes at deploy time. */
 .version-tag {
   margin-top: 16px;
@@ -386,40 +394,52 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 12px;
+  /* The screen already applies left/right insets, so this is just breathing
+     room — but max() keeps a floor if that ever changes. */
+  padding: 0 max(10px, env(safe-area-inset-left)) 0 max(10px, env(safe-area-inset-right));
   height: 68px;
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
 
+/* Nine equal columns that divide whatever width is left, rather than a fixed
+   button size that has to be guessed. A min-width floor can't fit 10 buttons
+   into a 390px phone — the grid can, because 1fr columns always add up. */
 .numpad {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: min(6px, 1vw);
+  flex: 1 1 auto;
+  min-width: 0;          /* lets the grid shrink below its content width */
+  max-width: 560px;
 }
 
 .num-btn {
   background: var(--surface2);
   border: 1.5px solid var(--border);
   border-radius: 10px;
-  font-size: var(--cell-font, 22px);
+  font-size: clamp(15px, 4.4vw, var(--cell-font, 22px));
   font-weight: 700;
   color: var(--text);
   cursor: pointer;
-  /* Size: fill available width up to a max, always square */
-  width:  clamp(36px, calc((100vw - 160px) / 9), 58px);
-  height: clamp(36px, calc((100vw - 160px) / 9), 58px);
+  width: 100%;
+  /* Nine across plus the hint button caps width at ~31px on a 390px phone, so
+     buy back the tap target vertically rather than staying square. */
+  height: 46px;
+  padding: 0;
   transition: background 0.1s, transform 0.08s;
-  flex-shrink: 0;
 }
 .num-btn:active { background: var(--cell-selected-bg); transform: scale(0.9); }
 
 .hint-btn {
-  width:  clamp(36px, calc((100vw - 160px) / 9), 58px);
-  height: clamp(36px, calc((100vw - 160px) / 9), 58px);
+  flex: 0 0 auto;
+  width:  clamp(36px, 11vw, 58px);
+  aspect-ratio: 1;
+  height: auto;
+  max-height: 100%;
   font-size: 20px;
   border-radius: 10px;
-  margin-left: 4px;
 }
 
 /* ── Pause overlay ───────────────────────────────────────────────────────── */
@@ -594,16 +614,107 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
 ═══════════════════════════════════════════════════════════════════════════ */
 @media (min-width: 768px) {
   .screen-card { padding: 40px 36px; }
-  .num-btn {
-    width:  clamp(44px, 5vw, 62px);
-    height: clamp(44px, 5vw, 62px);
-    font-size: 24px;
-  }
-  .hint-btn {
-    width:  clamp(44px, 5vw, 62px);
-    height: clamp(44px, 5vw, 62px);
-  }
+  /* Only the type scale and the cap change here — the numpad grid owns button
+     width. Setting width/height again would override it and reintroduce the
+     overflow this layout exists to prevent. */
+  .num-btn { font-size: 24px; height: 52px; }
+  .numpad { max-width: 600px; }
+  .hint-btn { width: clamp(44px, 5vw, 62px); height: 52px; }
   .game-bottombar { height: 76px; gap: 10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tablet landscape — board left, controls right
+   ───────────────────────────────────────────────────────────────────────────
+   Sized by dimensions rather than device sniffing: landscape plus a viewport
+   tall enough to rule out phones (iPhone landscape is ~375-430px tall, iPad
+   is 744px+). Deliberately NOT gated on pointer/hover — an iPad with a Magic
+   Keyboard reports a fine pointer, which would drop it out of this layout.
+   A wide desktop window matches too, and the split reads better there anyway.
+═══════════════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) and (min-width: 900px) and (min-height: 600px) {
+  /* MUST stay scoped to .active. `#screen-game` alone is an id selector, so its
+     display would beat `.screen { display: none }` and pin the game screen
+     on-screen over every other screen. */
+  #screen-game.active {
+    display: grid;
+    grid-template-columns: 1fr minmax(260px, 34%);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "board status"
+      "board idle"
+      "board pad";
+    gap: 0;
+  }
+
+  .game-center    { grid-area: board; padding: 16px; }
+  .game-topbar    { grid-area: status; }
+  .idle-indicator { grid-area: idle; position: static; transform: none; width: 100%; }
+  .game-bottombar { grid-area: pad; }
+
+  /* Left: the board takes the full column height, bounded by the shorter side. */
+  .sudoku-grid {
+    --grid-v: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    --grid-h: calc(64vw - 32px);
+    width:  min(var(--grid-v), var(--grid-h), 760px);
+    height: min(var(--grid-v), var(--grid-h), 760px);
+  }
+
+  /* Right, top: the status row unwraps into a stacked panel. */
+  .game-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    gap: 14px;
+    padding: calc(18px + env(safe-area-inset-top)) 18px 18px;
+    border-bottom: none;
+    border-left: 1px solid var(--border);
+  }
+  .topbar-left, .topbar-right { justify-content: space-between; flex: 0 0 auto; }
+  .topbar-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 0;
+    border-radius: 12px;
+    background: var(--surface2);
+  }
+  .topbar-center .score-value { font-size: 30px; }
+
+  /* Right, bottom: 3x3 keypad fills the panel instead of a 1x9 strip. */
+  .game-bottombar {
+    flex-direction: column;
+    justify-content: center;   /* the pad area is tall; don't strand it at the top */
+    gap: 14px;
+    height: auto;
+    padding: 0 18px calc(18px + env(safe-area-inset-bottom));
+    border-top: none;
+    border-left: 1px solid var(--border);
+  }
+  .numpad {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 340px;
+    flex: 0 0 auto;
+  }
+  .num-btn { font-size: 26px; border-radius: 14px; aspect-ratio: 1; height: auto; }
+  /* Compact and set well apart from the keypad. A full-width bar butted up
+     against the number grid invites mis-taps, and a hint costs points. */
+  .hint-btn {
+    width: auto;
+    min-width: 104px;
+    max-width: none;
+    align-self: center;
+    aspect-ratio: auto;
+    height: 44px;
+    margin-top: 22px;
+    padding: 0 18px;
+    font-size: 17px;
+    opacity: 0.75;
+  }
+  .hint-btn:hover { opacity: 1; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

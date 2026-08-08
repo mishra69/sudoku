@@ -22,8 +22,10 @@ const App = {
       const name = Storage.get('playerName');
       if (name) document.getElementById('welcome-name').textContent = name;
       UI.showScreen('menu');
+      this.maybePromptInstall();
     } else {
       UI.showScreen('login');
+      Auth.mountButton();
     }
 
     this._bindGlobalEvents();
@@ -104,40 +106,19 @@ const App = {
     setTimeout(() => this._endGame(false), 100);
   },
 
-  // ── Login / Register ──────────────────────────────────────────────────────
-
-  async handleLogin() {
-    const name = document.getElementById('login-name').value.trim();
-    const pin  = document.getElementById('login-pin').value.trim();
-    if (!name || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      this._showLoginError('Enter your name and a 4-digit PIN.');
-      return;
-    }
-    try {
-      await API.login(name, pin);
-      document.getElementById('welcome-name').textContent = name;
-      UI.showScreen('menu');
-    } catch (e) {
-      // If not found, offer to register
-      if (e.message.includes('not found')) {
-        if (confirm(`No account for "${name}". Create one?`)) {
-          try {
-            await API.register(name, pin);
-            document.getElementById('welcome-name').textContent = name;
-            UI.showScreen('menu');
-          } catch (e2) {
-            this._showLoginError(e2.message);
-          }
-        }
-      } else {
-        this._showLoginError(e.message);
-      }
-    }
-  },
+  // ── Login ─────────────────────────────────────────────────────────────────
+  // Sign-in lives in auth.js — Google's button owns the whole flow and calls
+  // back into Auth._onCredential.
 
   _showLoginError(msg) {
     const el = document.getElementById('login-error');
     if (el) { el.textContent = msg; el.style.display = 'block'; }
+  },
+
+  // Only ask to install once someone is signed in — on the login screen the
+  // sheet sits on top of the Google button.
+  maybePromptInstall() {
+    setTimeout(() => { try { PWAInstall.show(); } catch (e) {} }, 2500);
   },
 
   // ── Game Config ───────────────────────────────────────────────────────────
@@ -444,10 +425,14 @@ const App = {
 
   logout() {
     API.logout();
+    Auth.signOutHint();   // stop Google silently signing us straight back in
     Timer.stop();
     this._stopAutosave();
     Game.state = null;
+    const err = document.getElementById('login-error');
+    if (err) err.style.display = 'none';
     UI.showScreen('login');
+    Auth.mountButton();
   },
 
   // ── Global event bindings ─────────────────────────────────────────────────
