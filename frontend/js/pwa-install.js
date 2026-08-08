@@ -1,3 +1,4 @@
+// skill-asset: pwa-install.js v1.0.0 (canonical: skills/pwa-cloudflare/assets/pwa-install.js)
 /*!
  * pwa-install.js — a drop-in "Add to Home Screen" prompt for any PWA.
  *

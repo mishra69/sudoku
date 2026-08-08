@@ -1,3 +1,4 @@
+// skill-asset: oidc.js v1.0.0 (canonical: skills/pwa-cloudflare/assets/oidc.js)
 // OpenID Connect ID-token verification for Cloudflare Workers.
 //
 // Nothing here is Google-specific: an ID token is a JWT signed by the provider,

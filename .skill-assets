@@ -1,0 +1,13 @@
+# Files copied from the pwa-cloudflare skill. Check drift with:
+#   ~/vibe-code-projects/.claude/skills/pwa-cloudflare/sync-assets.sh
+# and take the skill's version with --apply.
+#
+#   <asset in skill>      <path in this app>
+
+oidc.js                   worker/lib/oidc.js
+pwa-install.js            frontend/js/pwa-install.js
+deploy.sh                 deploy.sh
+
+# Intentionally NOT tracked — these are templates that every app customises,
+# so a diff against the skill is expected and meaningless:
+#   sw.js, manifest.json, head.html, pwa.css, version-check.js, _headers
