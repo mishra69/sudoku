@@ -1,0 +1,16 @@
+name = "sudoku"
+main = "index.js"
+compatibility_date = "2026-05-01"
+
+# Static assets (the PWA frontend) are served directly by the Workers runtime.
+# Asset paths are matched first; anything that isn't a file — i.e. /api/* —
+# falls through to the Worker in index.js.
+[assets]
+directory = "../frontend"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sudoku-db"
+database_id = "98f600ee-373a-4c78-b853-0ff49238e109"
+
+# Set TOKEN_SECRET via: wrangler secret put TOKEN_SECRET

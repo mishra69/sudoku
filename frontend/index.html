@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-font-size="medium">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- "default" keeps iOS from drawing the web view under the status bar.
+       black-translucent looks better but needs every screen to honour
+       env(safe-area-inset-top) — #screen-game sets padding:0 and doesn't. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Sudoku" />
+  <meta name="theme-color" content="#f0f4f8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
+  <title>Sudoku</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Login / Register
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="screen-card login-card">
+    <h1 class="app-title">Sudoku</h1>
+    <p class="subtitle">Enter your name and 4-digit PIN</p>
+    <div class="form-group">
+      <label for="login-name">Name</label>
+      <input id="login-name" type="text" placeholder="Your name" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label for="login-pin">PIN</label>
+      <input id="login-pin" type="password" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" autocomplete="off" />
+    </div>
+    <p id="login-error" class="error-msg" style="display:none;"></p>
+    <button class="btn btn-primary btn-lg" onclick="App.handleLogin()">Play</button>
+    <p class="version-tag" data-version></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Main Menu
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-menu" class="screen">
+  <div class="screen-card menu-card">
+    <h1 class="app-title">Sudoku</h1>
+    <p class="welcome-msg">Welcome, <span id="welcome-name"></span>!</p>
+    <div class="menu-buttons">
+      <button class="btn btn-primary btn-lg" onclick="App.showConfig()">New Game</button>
+      <button class="btn btn-secondary btn-lg" onclick="App.resumeGame()">Resume Game</button>
+      <button class="btn btn-ghost btn-lg" onclick="App.showScoreboard()">Scoreboard</button>
+      <button class="btn btn-ghost btn-lg" onclick="UI.showScreen('settings'); Sound.tap()">Settings</button>
+      <button class="btn btn-text" onclick="App.logout()">Sign Out</button>
+    </div>
+    <p class="version-tag" data-version></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Game Config
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-config" class="screen">
+  <div class="screen-card config-card">
+    <div class="screen-header">
+      <button class="btn btn-icon" onclick="UI.showScreen('menu'); Sound.tap()">←</button>
+      <h2>New Game</h2>
+    </div>
+
+    <section class="config-section">
+      <h3>Difficulty</h3>
+      <div class="radio-group">
+        <label class="radio-pill"><input type="radio" name="difficulty" value="easy" /><span>Easy</span></label>
+        <label class="radio-pill"><input type="radio" name="difficulty" value="medium" checked /><span>Medium</span></label>
+        <label class="radio-pill"><input type="radio" name="difficulty" value="hard" /><span>Hard</span></label>
+        <label class="radio-pill"><input type="radio" name="difficulty" value="expert" /><span>Expert</span></label>
+      </div>
+    </section>
+
+    <section class="config-section">
+      <h3>Mistakes</h3>
+      <div class="radio-group">
+        <label class="radio-pill"><input type="radio" name="mistakes-type" value="unlimited" checked /><span>Unlimited</span></label>
+        <label class="radio-pill"><input type="radio" name="mistakes-type" value="limited" /><span>Limited</span></label>
+      </div>
+      <div id="mistakes-limit-group" class="limit-selector" style="display:none;">
+        <span>Allow</span>
+        <select id="mistakes-limit">
+          <option value="3">3</option>
+          <option value="5" selected>5</option>
+          <option value="10">10</option>
+        </select>
+        <span>mistakes</span>
+      </div>
+      <p class="config-hint">Unlimited = exponential point cost per mistake</p>
+    </section>
+
+    <section class="config-section">
+      <h3>Hints</h3>
+      <div class="radio-group">
+        <label class="radio-pill"><input type="radio" name="hints-type" value="unlimited" checked /><span>Unlimited</span></label>
+        <label class="radio-pill"><input type="radio" name="hints-type" value="limited" /><span>Limited</span></label>
+      </div>
+      <div id="hints-limit-group" class="limit-selector" style="display:none;">
+        <span>Allow</span>
+        <select id="hints-limit">
+          <option value="3">3</option>
+          <option value="5" selected>5</option>
+          <option value="10">10</option>
+        </select>
+        <span>hints</span>
+      </div>
+      <p class="config-hint">Unlimited = exponential point cost per hint</p>
+    </section>
+
+    <section class="config-section">
+      <h3>Timer Pressure</h3>
+      <label class="toggle-label">
+        <input type="checkbox" id="timer-pressure" />
+        <span class="toggle-switch"></span>
+        <span>Deduct points over time</span>
+      </label>
+      <p class="config-hint">-10 pts/min · Timer pauses when you step away</p>
+    </section>
+
+    <button class="btn btn-primary btn-lg" onclick="App.startNewGame()">Start Game</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Game
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Pause overlay -->
+  <div id="pause-overlay" class="pause-overlay" style="display:none;">
+    <div class="pause-card">
+      <h2>Paused</h2>
+      <button class="btn btn-primary btn-lg" onclick="App.resumeFromPause()">Resume</button>
+      <button class="btn btn-ghost btn-lg" onclick="App.quitToMenu()">Quit to Menu</button>
+    </div>
+  </div>
+
+  <!-- Top bar -->
+  <div class="game-topbar">
+    <div class="topbar-left">
+      <button class="btn btn-icon" id="btn-pause" onclick="App.pauseGame()">⏸</button>
+      <span id="difficulty-badge" class="badge badge-difficulty"></span>
+    </div>
+    <div class="topbar-center">
+      <span class="score-label">Score</span>
+      <span id="score-display" class="score-value">0</span>
+    </div>
+    <div class="topbar-right">
+      <span id="mistake-counter" class="stat-chip">✗ 0</span>
+      <span id="timer-display" class="stat-chip timer-chip">00:00</span>
+      <span id="hint-counter" class="stat-chip">💡 0</span>
+      <button id="btn-mute" class="btn btn-icon" onclick="Sound.setMuted(!Sound.muted); UI.updateMuteBtn()">🔊</button>
+    </div>
+  </div>
+
+  <!-- Idle indicator (slim stripe) -->
+  <div id="idle-indicator" class="idle-indicator" style="display:none;">Paused — tap to resume</div>
+
+  <!-- Grid (centered, fills remaining space) -->
+  <div class="game-center">
+    <div id="sudoku-grid" class="sudoku-grid"></div>
+  </div>
+
+  <!-- Bottom bar: numpad + hint -->
+  <div class="game-bottombar">
+    <div id="numpad" class="numpad"></div>
+    <button id="btn-hint" class="btn btn-hint hint-btn" onclick="App.useHint()">💡</button>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Game Over / Victory
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-gameover" class="screen">
+  <div class="screen-card gameover-card">
+    <h2 id="go-title" class="go-title">Puzzle Complete!</h2>
+    <div class="go-stats">
+      <div class="go-score-block">
+        <span class="go-label">Final Score</span>
+        <span id="go-score" class="go-score-value">0</span>
+      </div>
+      <div class="go-details">
+        <div class="go-row"><span>Difficulty</span><span id="go-difficulty" class="go-val"></span></div>
+        <div class="go-row"><span>Mistakes</span><span id="go-mistakes" class="go-val"></span></div>
+        <div class="go-row"><span>Hints Used</span><span id="go-hints" class="go-val"></span></div>
+        <div class="go-row"><span>Time</span><span id="go-time" class="go-val"></span></div>
+      </div>
+    </div>
+    <div class="go-buttons">
+      <button class="btn btn-primary btn-lg" onclick="App.showConfig()">New Game</button>
+      <button class="btn btn-secondary btn-lg" onclick="App.showScoreboard()">Scoreboard</button>
+      <button class="btn btn-ghost btn-lg" onclick="UI.showScreen('menu'); Sound.tap()">Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Scoreboard
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-scoreboard" class="screen">
+  <div class="screen-card scoreboard-card">
+    <div class="screen-header">
+      <button class="btn btn-icon" onclick="UI.showScreen('menu'); Sound.tap()">←</button>
+      <h2>Scoreboard</h2>
+    </div>
+    <div class="table-wrap">
+      <table class="scoreboard-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Level</th>
+            <th>Score</th>
+            <th>Mistakes</th>
+            <th>Hints</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="scoreboard-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: Settings
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-settings" class="screen">
+  <div class="screen-card settings-card">
+    <div class="screen-header">
+      <button class="btn btn-icon" onclick="UI.showScreen('menu'); Sound.tap()">←</button>
+      <h2>Settings</h2>
+    </div>
+
+    <section class="config-section">
+      <h3>Theme</h3>
+      <div class="radio-group">
+        <label class="radio-pill"><input type="radio" name="theme" value="light" checked /><span>Light</span></label>
+        <label class="radio-pill"><input type="radio" name="theme" value="dark" /><span>Dark</span></label>
+      </div>
+    </section>
+
+    <section class="config-section">
+      <h3>Font Size</h3>
+      <div class="radio-group">
+        <label class="radio-pill"><input type="radio" name="font-size" value="small" /><span>Small</span></label>
+        <label class="radio-pill"><input type="radio" name="font-size" value="medium" checked /><span>Medium</span></label>
+        <label class="radio-pill"><input type="radio" name="font-size" value="large" /><span>Large</span></label>
+      </div>
+    </section>
+
+    <section class="config-section">
+      <h3>Sound</h3>
+      <label class="toggle-label">
+        <input type="checkbox" id="setting-sound" checked />
+        <span class="toggle-switch"></span>
+        <span>Enable sounds</span>
+      </label>
+    </section>
+
+    <button class="btn btn-primary btn-lg" onclick="App.saveSettings()">Save Settings</button>
+    <p class="version-tag" data-version></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Global overlays
+═══════════════════════════════════════════════════════════════════════════ -->
+<canvas id="confetti-canvas" style="display:none; position:fixed; inset:0; pointer-events:none; z-index:999;"></canvas>
+
+<!-- Scripts — order matters -->
+<script src="/js/vendor/sudoku.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/storage.js"></script>
+<script src="/js/puzzle.js"></script>
+<script src="/js/sound.js"></script>
+<script src="/js/game.js"></script>
+<script src="/js/timer.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/animations.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/pwa-install.js"></script>
+
+<script>
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  PWAInstall.init({ appName: 'Sudoku', remember: 7 });
+</script>
+
+</body>
+</html>

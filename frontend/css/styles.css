@@ -1,0 +1,638 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS Variables — Light & Dark themes
+═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Themes the install sheet in js/pwa-install.js. Custom properties inherit
+     through its shadow boundary, so it tracks data-theme for free. */
+  --pwa-accent:  var(--primary);
+  --pwa-surface: var(--surface);
+  --pwa-text:    var(--text);
+
+  --bg:           #f0f4f8;
+  --surface:      #ffffff;
+  --surface2:     #f8fafc;
+  --border:       #e2e8f0;
+  --border-box:   #64748b;
+  --text:         #1e293b;
+  --text-muted:   #64748b;
+  --primary:      #3b82f6;
+  --primary-dark: #2563eb;
+  --success:      #10b981;
+  --danger:       #ef4444;
+  --warning:      #f59e0b;
+  --hint-color:   #8b5cf6;
+  --cell-bg:      #ffffff;
+  --cell-prefilled-bg: #e8edf5;
+  --cell-selected-bg:  #dbeafe;
+  --cell-highlight-bg: #f1f5fd;
+  --shadow:       0 4px 24px rgba(0,0,0,0.08);
+  --shadow-sm:    0 2px 8px rgba(0,0,0,0.06);
+  --radius:       16px;
+  --radius-sm:    8px;
+}
+
+[data-theme="dark"] {
+  --bg:           #0f172a;
+  --surface:      #1e293b;
+  --surface2:     #162032;
+  --border:       #334155;
+  --border-box:   #94a3b8;
+  --text:         #f1f5f9;
+  --text-muted:   #94a3b8;
+  --primary:      #3b82f6;
+  --primary-dark: #2563eb;
+  --cell-bg:      #1e293b;
+  --cell-prefilled-bg: #0f1e35;
+  --cell-selected-bg:  #1d3a6e;
+  --cell-highlight-bg: #192842;
+  --shadow:       0 4px 24px rgba(0,0,0,0.4);
+  --shadow-sm:    0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Font sizes */
+[data-font-size="small"]  { --cell-font: 18px; --ui-font: 13px; }
+[data-font-size="medium"] { --cell-font: 22px; --ui-font: 15px; }
+[data-font-size="large"]  { --cell-font: 28px; --ui-font: 18px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Reset & Base
+═══════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: var(--ui-font, 15px);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  /* Kill iOS rubber-band scrolling, which reads as broken in a standalone
+     home-screen app where there's no browser chrome to snap back to. */
+  overscroll-behavior: none;
+}
+
+/* Build stamp — set from CONFIG.VERSION, which deploy.sh writes at deploy time. */
+.version-tag {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Screens
+═══════════════════════════════════════════════════════════════════════════ */
+.screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.screen.active { display: flex; flex-direction: column; align-items: center; }
+
+.screen-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Typography
+═══════════════════════════════════════════════════════════════════════════ */
+.app-title {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--primary);
+  text-align: center;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
+}
+.subtitle, .welcome-msg { color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+h2 { font-size: 22px; font-weight: 700; }
+h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Buttons
+═══════════════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--ui-font, 15px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.15s;
+  padding: 10px 20px;
+  min-height: 44px;
+  /* Suppress double-tap-to-zoom so rapid taps register as taps. */
+  touch-action: manipulation;
+}
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+
+.btn-primary   { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+.btn-ghost     { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+.btn-text      { background: none; color: var(--text-muted); font-weight: 400; font-size: 13px; }
+.btn-icon      { background: none; font-size: 20px; padding: 8px; min-height: 40px; min-width: 40px; color: var(--text); }
+.btn-hint      { background: #f5f0ff; color: var(--hint-color); border: 1.5px solid #ddd6fe; }
+[data-theme="dark"] .btn-hint { background: #2d1f4e; border-color: #5b3fa0; }
+
+.btn-lg { width: 100%; padding: 14px; font-size: 17px; margin-bottom: 10px; border-radius: 12px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Forms
+═══════════════════════════════════════════════════════════════════════════ */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 6px; }
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+}
+.form-group input:focus { border-color: var(--primary); }
+
+.error-msg { color: var(--danger); font-size: 13px; margin-bottom: 12px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Radio pills & Toggle
+═══════════════════════════════════════════════════════════════════════════ */
+.radio-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+
+.radio-pill input { display: none; }
+.radio-pill span {
+  display: block;
+  padding: 8px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.radio-pill input:checked + span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-label input { display: none; }
+.toggle-switch {
+  position: relative;
+  width: 44px; height: 26px;
+  background: var(--border);
+  border-radius: 50px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+}
+.toggle-label input:checked + .toggle-switch { background: var(--primary); }
+.toggle-label input:checked + .toggle-switch::after { transform: translateX(18px); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Config screen
+═══════════════════════════════════════════════════════════════════════════ */
+.screen-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+
+.config-section { margin-bottom: 24px; }
+.config-section h3 { margin-bottom: 8px; }
+.config-hint { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+
+.limit-selector { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--text-muted); }
+.limit-selector select {
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Menu screen
+═══════════════════════════════════════════════════════════════════════════ */
+.menu-buttons { display: flex; flex-direction: column; margin-top: 8px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Game screen — full-height flex column
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-game {
+  background: var(--bg);
+  /* Deliberately no top inset here — the top bar absorbs it itself, so its
+     background can fill behind the status bar instead of leaving a gap. */
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.game-topbar {
+  display: flex;
+  align-items: center;
+  /* Grow by the status-bar inset and pad the contents down past it. Under
+     status-bar-style "default" the inset is 0 and this is a no-op; under
+     "black-translucent" — which iOS bakes into an existing install and won't
+     update — it's what stops the bar being occluded. */
+  padding: env(safe-area-inset-top) clamp(12px, 2.5vw, 32px) 0;
+  height: calc(clamp(54px, 8vh, 72px) + env(safe-area-inset-top));
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.2vw, 16px);
+  flex: 1;
+  justify-content: flex-start;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.5vw, 32px);
+  flex: 1;
+  justify-content: flex-end;
+}
+.topbar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 clamp(8px, 2vw, 24px);
+}
+.score-label {
+  font-size: clamp(9px, 1vw, 12px);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.6px;
+  line-height: 1;
+}
+.score-value {
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.stat-chip {
+  font-size: clamp(12px, 1.4vw, 16px);
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.timer-chip { color: var(--text); }
+
+/* Idle indicator */
+.idle-indicator {
+  background: var(--warning);
+  color: white;
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Grid center ─────────────────────────────────────────────────────────── */
+.game-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  min-height: 0;  /* allow shrinking in flex context */
+}
+
+/* ── Sudoku Grid ──────────────────────────────────────────────────────────── */
+.sudoku-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  /* Fill available space: limited by both viewport dimensions minus bars.
+     dvh tracks the real viewport in standalone mode; the safe-area insets keep
+     the grid clear of the notch and home indicator. */
+  --grid-v: calc(100dvh - 168px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  --grid-h: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  width:  min(var(--grid-v), var(--grid-h), 580px);
+  height: min(var(--grid-v), var(--grid-h), 580px);
+  border: 2.5px solid var(--border-box);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--cell-font, 22px);
+  font-weight: 500;
+  background: var(--cell-bg);
+  color: var(--text);
+  border: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  touch-action: manipulation;
+}
+.cell:active { background: var(--cell-selected-bg); }
+
+/* Box borders (thick) */
+.cell.box-top    { border-top: 2px solid var(--border-box); }
+.cell.box-left   { border-left: 2px solid var(--border-box); }
+.cell.box-bottom { border-bottom: 2px solid var(--border-box); }
+.cell.box-right  { border-right: 2px solid var(--border-box); }
+
+/* Cell types */
+.cell-prefilled { background: var(--cell-prefilled-bg); font-weight: 700; cursor: default; }
+.cell-selected  { background: var(--cell-selected-bg) !important; }
+.cell-highlight { background: var(--cell-highlight-bg); }
+.cell-player    { color: var(--primary); }
+.cell-hint      { color: var(--hint-color); font-weight: 600; }
+.cell-mistake   { color: var(--danger); }
+
+/* ── Bottom bar: numpad + hint ───────────────────────────────────────────── */
+.game-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 68px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.numpad {
+  display: flex;
+  gap: 6px;
+}
+
+.num-btn {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: var(--cell-font, 22px);
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  /* Size: fill available width up to a max, always square */
+  width:  clamp(36px, calc((100vw - 160px) / 9), 58px);
+  height: clamp(36px, calc((100vw - 160px) / 9), 58px);
+  transition: background 0.1s, transform 0.08s;
+  flex-shrink: 0;
+}
+.num-btn:active { background: var(--cell-selected-bg); transform: scale(0.9); }
+
+.hint-btn {
+  width:  clamp(36px, calc((100vw - 160px) / 9), 58px);
+  height: clamp(36px, calc((100vw - 160px) / 9), 58px);
+  font-size: 20px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+/* ── Pause overlay ───────────────────────────────────────────────────────── */
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+.pause-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  width: min(340px, calc(100vw - 48px));
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.pause-card h2 {
+  margin-bottom: 16px;
+  font-size: 26px;
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Game Over screen
+═══════════════════════════════════════════════════════════════════════════ */
+.go-title { font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 24px; color: var(--primary); }
+.go-score-block { text-align: center; margin-bottom: 20px; }
+.go-label { display: block; font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
+.go-score-value { font-size: 56px; font-weight: 900; color: var(--primary); line-height: 1.1; }
+.go-details { display: flex; flex-direction: column; gap: 10px; background: var(--surface2); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 24px; }
+.go-row { display: flex; justify-content: space-between; }
+.go-val { font-weight: 700; }
+.go-buttons { display: flex; flex-direction: column; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scoreboard
+═══════════════════════════════════════════════════════════════════════════ */
+.scoreboard-card { max-width: 640px; }
+.table-wrap { overflow-x: auto; margin-top: 16px; }
+.scoreboard-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.scoreboard-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+}
+.scoreboard-table td { padding: 10px; border-bottom: 1px solid var(--border); }
+.score-val { font-weight: 700; color: var(--primary); }
+.empty-msg { text-align: center; color: var(--text-muted); padding: 24px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Badges
+═══════════════════════════════════════════════════════════════════════════ */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-easy, [id="difficulty-badge"].badge   { background: #d1fae5; color: #065f46; }
+.badge-medium { background: #fef3c7; color: #92400e; }
+.badge-hard   { background: #fee2e2; color: #991b1b; }
+.badge-expert { background: #ede9fe; color: #5b21b6; }
+
+/* Dynamic difficulty badge in game HUD */
+#difficulty-badge { background: #dbeafe; color: #1d4ed8; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Floating text (score deductions)
+═══════════════════════════════════════════════════════════════════════════ */
+.floating-text {
+  position: fixed;
+  font-size: 18px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 100;
+  animation: float-up 0.9s ease-out forwards;
+  transform: translateX(-50%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Animations
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* Correct number placed */
+@keyframes cell-correct {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.anim-correct { animation: cell-correct 0.3s ease-out; }
+
+/* Mistake */
+@keyframes cell-mistake {
+  0%   { transform: translateX(0); background: #fef2f2; }
+  20%  { transform: translateX(-5px); background: #fee2e2; }
+  40%  { transform: translateX(5px); }
+  60%  { transform: translateX(-4px); }
+  80%  { transform: translateX(4px); }
+  100% { transform: translateX(0); }
+}
+.anim-mistake { animation: cell-mistake 0.5s ease-out; }
+
+/* Hint fade-in */
+@keyframes cell-hint {
+  0%   { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.anim-hint { animation: cell-hint 0.35s ease-out; }
+
+/* Row glow */
+@keyframes row-glow {
+  0%   { background: var(--cell-bg); }
+  50%  { background: #d1fae5; }
+  100% { background: var(--cell-bg); }
+}
+.anim-row-glow { animation: row-glow 0.5s ease-out; }
+
+/* Column glow */
+@keyframes col-glow {
+  0%   { background: var(--cell-bg); }
+  50%  { background: #d1fae5; }
+  100% { background: var(--cell-bg); }
+}
+.anim-col-glow { animation: col-glow 0.5s ease-out; }
+
+/* Box pulse */
+@keyframes box-pulse {
+  0%   { box-shadow: none; }
+  50%  { box-shadow: inset 0 0 0 2px var(--success); }
+  100% { box-shadow: none; }
+}
+.anim-box-pulse { animation: box-pulse 0.6s ease-out; }
+
+/* Counter bump */
+@keyframes counter-bump {
+  0%   { transform: scale(1); color: var(--text-muted); }
+  40%  { transform: scale(1.3); color: var(--danger); }
+  100% { transform: scale(1); color: var(--text-muted); }
+}
+.anim-counter-bump { animation: counter-bump 0.4s ease-out; }
+
+/* Timer pulse */
+@keyframes timer-pulse {
+  0%   { color: var(--text); }
+  50%  { color: var(--warning); transform: scale(1.1); }
+  100% { color: var(--text); transform: scale(1); }
+}
+.anim-timer-pulse { animation: timer-pulse 0.5s ease-out; }
+
+/* Floating text */
+@keyframes float-up {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-48px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tablet / larger screens
+═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .screen-card { padding: 40px 36px; }
+  .num-btn {
+    width:  clamp(44px, 5vw, 62px);
+    height: clamp(44px, 5vw, 62px);
+    font-size: 24px;
+  }
+  .hint-btn {
+    width:  clamp(44px, 5vw, 62px);
+    height: clamp(44px, 5vw, 62px);
+  }
+  .game-bottombar { height: 76px; gap: 10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Debug panel (only shown with ?debug=1)
+═══════════════════════════════════════════════════════════════════════════ */
+.debug-panel {
+  position: fixed;
+  bottom: 80px;
+  right: 12px;
+  background: #1e293b;
+  color: white;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  font-size: 13px;
+}
+.debug-label { font-weight: 700; opacity: 0.6; margin-right: 2px; }
+.debug-panel button {
+  background: #334155;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.debug-panel button:hover { background: #475569; }

@@ -1,0 +1,10 @@
+# Local secrets — TOKEN_SECRET etc. Production uses `wrangler secret put`.
+.dev.vars
+worker/.dev.vars
+
+# Wrangler local state and D1 dev database
+.wrangler/
+worker/.wrangler/
+
+node_modules/
+.DS_Store
