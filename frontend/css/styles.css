@@ -419,6 +419,11 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   background: var(--surface2);
   border: 1.5px solid var(--border);
   border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   font-size: clamp(15px, 4.4vw, var(--cell-font, 22px));
   font-weight: 700;
   color: var(--text);
@@ -431,6 +436,25 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   transition: background 0.1s, transform 0.08s;
 }
 .num-btn:active { background: var(--cell-selected-bg); transform: scale(0.9); }
+
+.num-val   { line-height: 1; }
+.num-count {
+  line-height: 1;
+  /* Tracks the digit so it scales across breakpoints, with a floor — 0.5em of
+     a 17px digit is 8.6px, too small to read on a phone. */
+  font-size: max(10px, 0.5em);
+  font-weight: 600;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* All nine placed — nothing left to enter, so take it out of play. */
+.num-btn:disabled,
+.num-btn-done {
+  opacity: 0.32;
+  pointer-events: none;
+}
+.num-btn-done .num-count { opacity: 0.9; }
 
 .hint-wrap {
   display: flex;

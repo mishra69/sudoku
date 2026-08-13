@@ -259,6 +259,7 @@ const App = {
     if (!state || state.completed || state.gameOver) return;
     if (state.cellTypes[row][col] === 'prefilled') return;
     if (state.cellTypes[row][col] === 'hint') return;
+    if (UI.isNumberExhausted(num)) return;   // all nine already placed
 
     const result = Game.placeNumber(row, col, num);
     if (!result) return;
@@ -276,6 +277,7 @@ const App = {
       setTimeout(() => {
         Game.clearMistakeCell(row, col);
         UI.updateCell(row, col, 0, 'empty');
+        UI.updateNumberCounts();
       }, CONFIG.MISTAKE_CLEAR_DELAY_MS);
 
       if (result.limitReached) {
@@ -286,6 +288,7 @@ const App = {
 
     // Correct
     UI.updateCell(row, col, num, 'player');
+    UI.updateNumberCounts();
     Animations.cellCorrect(row, col);
     Sound.correct();
 
@@ -339,6 +342,7 @@ const App = {
 
     const { state } = Game;
     UI.updateCell(result.row, result.col, result.value, 'hint');
+    UI.updateNumberCounts();
     Animations.cellHint(result.row, result.col);
     UI.updateScore(state.score);
     UI.updateHints(state.hints, state.config);

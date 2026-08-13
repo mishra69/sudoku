@@ -118,7 +118,8 @@ const UI = {
     for (let n = 1; n <= 9; n++) {
       const btn = document.createElement('button');
       btn.className = 'num-btn';
-      btn.textContent = n;
+      btn.innerHTML = `<span class="num-val"></span><span class="num-count"></span>`;
+      btn.querySelector('.num-val').textContent = n;
       btn.dataset.num = n;
       btn.addEventListener('click', () => {
         Sound.tap();
@@ -127,6 +128,42 @@ const UI = {
       });
       pad.appendChild(btn);
     }
+    this.updateNumberCounts();
+  },
+
+  // How many of each digit are still to be placed. Call after anything that
+  // changes the board.
+  updateNumberCounts() {
+    const { state } = Game;
+    const pad = document.getElementById('numpad');
+    if (!state || !pad) return;
+
+    const remaining = new Array(10).fill(9);
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const v = state.current[r][c];
+        // A mistake is on the board only until its animation ends, so counting
+        // it would make the badge flicker down and back up.
+        if (!v || state.cellTypes[r][c] === 'mistake') continue;
+        remaining[v]--;
+      }
+    }
+
+    this._remaining = remaining;
+
+    pad.querySelectorAll('.num-btn').forEach(btn => {
+      const left = Math.max(0, remaining[Number(btn.dataset.num)]);
+      const badge = btn.querySelector('.num-count');
+      if (badge) badge.textContent = left;
+      btn.disabled = left === 0;
+      btn.classList.toggle('num-btn-done', left === 0);
+    });
+  },
+
+  // Disabling the button only stops taps; the keyboard reaches onNumberInput
+  // directly, and entering a ninth 4 would otherwise be scored as a mistake.
+  isNumberExhausted(n) {
+    return !!this._remaining && this._remaining[n] <= 0;
   },
 
   // ── HUD updates ───────────────────────────────────────────────────────────
