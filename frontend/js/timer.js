@@ -38,12 +38,11 @@ const Timer = {
       }
     }, CONFIG.TIMER_PENALTY_INTERVAL_MS);
 
-    // Idle check every 30 s
     this._idleId = setInterval(() => {
       if (!this.idle && Date.now() - this.lastActivity > CONFIG.IDLE_TIMEOUT_MS) {
         this._goIdle();
       }
-    }, 30_000);
+    }, CONFIG.IDLE_CHECK_INTERVAL_MS);
 
     this._bindActivity();
   },

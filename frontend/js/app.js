@@ -9,6 +9,7 @@ const App = {
   async init() {
     Storage.loadQueue();
     Sound.load();
+    WakeLock.init();
     this._showVersion();
 
     // Apply saved settings
@@ -158,6 +159,7 @@ const App = {
     Sound.ready();
     Timer.start(0);
     this._startAutosave();
+    WakeLock.enable();
     this._saveGame(); // persist immediately so Resume works right away
   },
 
@@ -172,6 +174,7 @@ const App = {
       UI.showScreen('game');
       Timer.start(saved.elapsed_seconds);
       this._startAutosave();
+      WakeLock.enable();
     } catch (e) {
       alert('Could not load saved game: ' + e.message);
     }
@@ -183,6 +186,7 @@ const App = {
     Sound.tap();
     Timer.stop();
     this._stopAutosave();
+    WakeLock.disable();
     this._saveGame();
     const overlay = document.getElementById('pause-overlay');
     if (overlay) overlay.style.display = 'flex';
@@ -198,6 +202,7 @@ const App = {
     if (btn) btn.textContent = '⏸';
     Timer.start(Timer.elapsed);
     this._startAutosave();
+    WakeLock.enable();
   },
 
   quitToMenu() {
@@ -206,6 +211,7 @@ const App = {
     if (overlay) overlay.style.display = 'none';
     const btn = document.getElementById('btn-pause');
     if (btn) btn.textContent = '⏸';
+    WakeLock.disable();
     UI.showScreen('menu');
   },
 
@@ -360,6 +366,7 @@ const App = {
   async _endGame(completed) {
     Timer.stop();
     this._stopAutosave();
+    WakeLock.disable();   // game over — stop holding the screen on
 
     const { state } = Game;
 
@@ -457,6 +464,7 @@ const App = {
     Auth.signOutHint();   // stop Google silently signing us straight back in
     Timer.stop();
     this._stopAutosave();
+    WakeLock.disable();
     Game.state = null;
     const err = document.getElementById('login-error');
     if (err) err.style.display = 'none';
