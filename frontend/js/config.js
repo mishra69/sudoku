@@ -32,5 +32,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260812_2120',
+  VERSION: '20260812_2129',
 };
