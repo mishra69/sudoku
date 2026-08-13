@@ -68,6 +68,7 @@
         <label class="radio-pill"><input type="radio" name="difficulty" value="medium" checked /><span>Medium</span></label>
         <label class="radio-pill"><input type="radio" name="difficulty" value="hard" /><span>Hard</span></label>
         <label class="radio-pill"><input type="radio" name="difficulty" value="expert" /><span>Expert</span></label>
+        <label class="radio-pill"><input type="radio" name="difficulty" value="master" /><span>Master</span></label>
       </div>
     </section>
 
@@ -164,7 +165,10 @@
   <!-- Bottom bar: numpad + hint -->
   <div class="game-bottombar">
     <div id="numpad" class="numpad"></div>
-    <button id="btn-hint" class="btn btn-hint hint-btn" onclick="App.useHint()">💡</button>
+    <div class="hint-wrap">
+      <button id="btn-hint" class="btn btn-hint hint-btn" onclick="App.useHint()">💡</button>
+      <button id="hint-confirm" class="btn hint-confirm" style="display:none;" onclick="App.confirmHint()">Use hint?</button>
+    </div>
   </div>
 
 </div>

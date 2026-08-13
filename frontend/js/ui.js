@@ -98,6 +98,7 @@ const UI = {
 
   _onCellClick(row, col) {
     Sound.tap();
+    App.cancelHint();   // touching the board means you didn't mean the hint
     const { state } = Game;
     if (!state || state.completed || state.gameOver) return;
     if (state.cellTypes[row][col] === 'prefilled') {
@@ -121,6 +122,7 @@ const UI = {
       btn.dataset.num = n;
       btn.addEventListener('click', () => {
         Sound.tap();
+        App.cancelHint();   // a number tap is not a hint confirmation
         App.onNumberInput(n);
       });
       pad.appendChild(btn);

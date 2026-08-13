@@ -2,17 +2,13 @@
 // sudoku.js is loaded as a global <script> before this file.
 
 const Puzzle = {
-  DIFFICULTY_MAP: {
-    easy:   'easy',
-    medium: 'medium',
-    hard:   'hard',
-    expert: 'very-hard',
-  },
-
   // Returns { initial: string, solution: string, difficulty }
   // Both initial and solution are 81-char strings ('.' = empty)
   generate(difficulty) {
-    const level = this.DIFFICULTY_MAP[difficulty] || 'easy';
+    // Single source of truth: CONFIG.DIFFICULTIES[x].sudokuLevel. This used to
+    // be duplicated in a local DIFFICULTY_MAP, which silently won — so adding a
+    // difficulty to CONFIG alone produced an easy puzzle under a hard label.
+    const level = (CONFIG.DIFFICULTIES[difficulty] || {}).sudokuLevel || 'easy';
     const initialStr = sudoku.generate(level);
     const solutionStr = sudoku.solve(initialStr);
 

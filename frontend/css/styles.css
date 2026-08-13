@@ -432,6 +432,31 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
 }
 .num-btn:active { background: var(--cell-selected-bg); transform: scale(0.9); }
 
+.hint-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* Armed state: appears beside the hint button on the first tap. */
+.hint-confirm {
+  background: var(--hint-color);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0 14px;
+  height: 46px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: hintConfirmIn 0.14s ease-out;
+}
+@keyframes hintConfirmIn {
+  from { opacity: 0; transform: scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) { .hint-confirm { animation: none; } }
+
 .hint-btn {
   flex: 0 0 auto;
   width:  clamp(36px, 11vw, 58px);
@@ -620,6 +645,7 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   .num-btn { font-size: 24px; height: 52px; }
   .numpad { max-width: 600px; }
   .hint-btn { width: clamp(44px, 5vw, 62px); height: 52px; }
+  .hint-confirm { height: 52px; }
   .game-bottombar { height: 76px; gap: 10px; }
 }
 
@@ -708,19 +734,20 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   .num-btn { font-size: 26px; border-radius: 14px; aspect-ratio: 1; height: auto; }
   /* Compact and set well apart from the keypad. A full-width bar butted up
      against the number grid invites mis-taps, and a hint costs points. */
+  /* The wrap is the flex child now, so spacing and centring live on it. */
+  .hint-wrap { align-self: center; margin-top: 22px; }
   .hint-btn {
     width: auto;
     min-width: 104px;
     max-width: none;
-    align-self: center;
     aspect-ratio: auto;
     height: 44px;
-    margin-top: 22px;
     padding: 0 18px;
     font-size: 17px;
     opacity: 0.75;
   }
   .hint-btn:hover { opacity: 1; }
+  .hint-confirm { height: 44px; }
 }
 
 /* Phone-height landscape: same split, but ~430px of height instead of ~800px,
@@ -739,7 +766,9 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   .game-bottombar { gap: 8px; padding: 0 14px calc(10px + env(safe-area-inset-bottom)); }
   .numpad { gap: 6px; max-width: min(340px, calc(100dvh - 230px)); }
   .num-btn { font-size: 19px; border-radius: 10px; }
-  .hint-btn { height: 36px; margin-top: 10px; min-width: 88px; font-size: 15px; }
+  .hint-wrap { margin-top: 10px; }
+  .hint-btn { height: 36px; min-width: 88px; font-size: 15px; }
+  .hint-confirm { height: 36px; font-size: 13px; padding: 0 10px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

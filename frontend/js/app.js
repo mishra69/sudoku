@@ -307,8 +307,33 @@ const App = {
 
   // ── Hint ──────────────────────────────────────────────────────────────────
 
+  // Hints cost points, and the button sits next to the numpad where it's easy
+  // to hit by accident — so the first tap only arms it. The second tap, on the
+  // separate confirm button, actually spends the hint.
+  _hintTimer: null,
+
   useHint() {
     Sound.tap();
+    if (Game.isHintLimitReached()) return;
+    const confirm = document.getElementById('hint-confirm');
+    if (!confirm) return this.confirmHint();   // markup missing: don't trap the user
+
+    confirm.style.display = '';
+    clearTimeout(this._hintTimer);
+    // Disarm on its own, so a stray tap doesn't leave a live confirm button
+    // sitting there to be hit later.
+    this._hintTimer = setTimeout(() => this.cancelHint(), 4000);
+  },
+
+  cancelHint() {
+    clearTimeout(this._hintTimer);
+    this._hintTimer = null;
+    const confirm = document.getElementById('hint-confirm');
+    if (confirm) confirm.style.display = 'none';
+  },
+
+  confirmHint() {
+    this.cancelHint();
     const result = Game.useHint();
     if (!result) return;
 
