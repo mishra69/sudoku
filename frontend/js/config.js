@@ -23,7 +23,13 @@ const CONFIG = {
     BONUS_COMPLETE:          100,
   },
 
-  IDLE_TIMEOUT_MS:        2 * 60 * 1000,   // 2 minutes
+  // Only touches and key presses count as activity, so this is really "how
+  // long may you stare at the board without touching it". 2 minutes was short
+  // enough that thinking through a hard cell paused the timer.
+  IDLE_TIMEOUT_MS:        5 * 60 * 1000,   // 5 minutes
+  // How often that's checked. At the old 30s the pause could land up to half a
+  // minute after the timeout, which made it feel arbitrary.
+  IDLE_CHECK_INTERVAL_MS: 10 * 1000,       // 10 seconds
   AUTOSAVE_INTERVAL_MS:   5 * 60 * 1000,   // 5 minutes
   TIMER_PENALTY_INTERVAL_MS: 60 * 1000,    // 1 minute
   MISTAKE_CLEAR_DELAY_MS: 800,              // how long wrong number shows before clearing
@@ -32,5 +38,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260812_2129',
+  VERSION: '20260813_0046',
 };
