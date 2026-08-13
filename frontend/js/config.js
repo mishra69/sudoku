@@ -4,6 +4,11 @@ const CONFIG = {
     medium: { label: 'Medium', startingPoints: 1000,  sudokuLevel: 'medium' },
     hard:   { label: 'Hard',   startingPoints: 2500,  sudokuLevel: 'hard' },
     expert: { label: 'Expert', startingPoints: 5000,  sudokuLevel: 'very-hard' },
+    // A raw given-count, not a named level. sudoku.js's own "insane" (25) and
+    // "inhuman" (17) never finish generating in reasonable time — measured at
+    // >20s — and generation blocks the UI thread. 32 givens is three fewer than
+    // very-hard, and measured at median 142ms / max 550ms over 25 runs.
+    master: { label: 'Master', startingPoints: 10000, sudokuLevel: 32 },
   },
 
   SCORING: {
@@ -27,5 +32,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260808_1138',
+  VERSION: '20260812_2120',
 };
