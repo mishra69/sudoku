@@ -21,3 +21,7 @@ database_id = "98f600ee-373a-4c78-b853-0ff49238e109"
 # Authorized JavaScript origins must include the deployed URL and
 # http://localhost:8788 for local dev.
 GOOGLE_CLIENT_ID = "229407326658-fe02tpm00tc35884qpfh119kehj8ss5v.apps.googleusercontent.com"
+
+# VAPID public key — the browser needs it as applicationServerKey, so it is not
+# secret. The private half is a secret: wrangler secret put VAPID_PRIVATE_JWK
+VAPID_PUBLIC_KEY = "BEXzgCB83VdIlmxHp2j9fIme5Cax69agi3doyXJgDpM8oa-nBIJrkZ1VKYssyImvKj9F_jgF7A-Le5ZrMC20XKM"

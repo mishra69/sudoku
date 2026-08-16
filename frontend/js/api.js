@@ -60,6 +60,12 @@ const API = {
     Storage.remove('playerPicture');
   },
 
+  // ── Push ──────────────────────────────────────────────────────────────────
+
+  async pushTest() {
+    return this._rawFetch('POST', '/push/test');
+  },
+
   // ── Scores ────────────────────────────────────────────────────────────────
 
   async saveScore(scoreData) {

@@ -1,0 +1,8 @@
+{
+  "name": "sudoku-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "webpush-edge": "github:mishra69/webpush-edge"
+  }
+}

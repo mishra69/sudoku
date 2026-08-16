@@ -49,7 +49,50 @@ const App = {
   _showVersion() {
     document.querySelectorAll('[data-version]').forEach(el => {
       el.textContent = CONFIG.VERSION === 'dev' ? 'dev build' : 'v' + CONFIG.VERSION;
+      // Hidden diagnostic: tap the build stamp to subscribe this device and
+      // fire a test push. Deliberately undiscoverable rather than a settings
+      // toggle — this is for verifying delivery, not a user-facing feature.
+      el.style.cursor = 'pointer';
+      el.title = 'tap to send a test notification';
+      el.addEventListener('click', () => this.testPush(el));
     });
+  },
+
+  // Subscribing must happen inside the click gesture: Safari ignores a
+  // permission request that isn't tied to one.
+  async testPush(el) {
+    const say = msg => { if (el) el.textContent = msg; };
+    const restore = () => setTimeout(() => this._showVersionText(el), 6000);
+
+    const support = Push.pushSupport();
+    if (support.state === 'needs-install') {
+      say('add to home screen first — iOS only allows push there');
+      return restore();
+    }
+    if (support.state === 'unsupported') { say('push not supported here'); return restore(); }
+    if (support.state === 'blocked')     { say('notifications blocked in settings'); return restore(); }
+
+    say('subscribing…');
+    const sub = await Push.subscribe({
+      swPath: '/sw.js?v=' + CONFIG.VERSION,
+      keyUrl: CONFIG.API_BASE + '/push/key',
+      subscribeUrl: CONFIG.API_BASE + '/push/subscribe',
+      headers: API._headers(),   // /push/subscribe needs to know which player
+    }).catch(e => ({ ok: false, reason: e.message }));
+    if (!sub.ok) { say('subscribe failed: ' + sub.reason); return restore(); }
+
+    say('sending…');
+    try {
+      const res = await API.pushTest();
+      say(res.ok ? `sent to ${res.sent} device(s)` : `send failed: ${res.error || res.statuses}`);
+    } catch (e) {
+      say('send failed: ' + e.message);
+    }
+    restore();
+  },
+
+  _showVersionText(el) {
+    if (el) el.textContent = CONFIG.VERSION === 'dev' ? 'dev build' : 'v' + CONFIG.VERSION;
   },
 
   // The service worker caches this page's scripts, so a freshly deployed build

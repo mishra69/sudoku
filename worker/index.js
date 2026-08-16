@@ -1,6 +1,7 @@
 import { handleAuth, verifyToken } from './routes/auth.js';
 import { handleScores } from './routes/scores.js';
 import { handleGames } from './routes/games.js';
+import { handlePush, handlePushResubscribe } from './routes/push.js';
 
 // Static assets are matched before this Worker runs (see [assets] in
 // wrangler.toml), so anything arriving here is an /api/* call or a 404.
@@ -19,6 +20,17 @@ export default {
 
     try {
       // Public routes (no auth required)
+      // The service worker has no token, so endpoint rotation lands here.
+      if (apiPath === '/push/resubscribe' && method === 'POST') {
+        return await handlePushResubscribe(request, env);
+      }
+
+      // The VAPID *public* key is public by definition — the browser passes it
+      // as applicationServerKey. Gating it behind auth just breaks subscription.
+      if (apiPath === '/push/key') {
+        return await handlePush(apiPath, method, request, null, env);
+      }
+
       if (apiPath.startsWith('/auth/')) {
         return await handleAuth(apiPath, request, env);
       }
@@ -38,6 +50,10 @@ export default {
 
       if (apiPath.startsWith('/game/')) {
         return await handleGames(method, request, playerId, env);
+      }
+
+      if (apiPath.startsWith('/push/')) {
+        return await handlePush(apiPath, method, request, playerId, env);
       }
 
       return json({ error: 'Not found' }, 404);
