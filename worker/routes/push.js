@@ -42,15 +42,16 @@ export async function handlePush(path, method, request, playerId, env) {
   if (path === '/push/subscribe' && method === 'POST') {
     const { subscription } = await request.json().catch(() => ({}));
     if (!subscription?.endpoint) return json({ ok: false, error: 'no subscription' }, 400);
-    await pusher(env).subscribe(playerId, subscription);
-    const devices = (await pusher(env).list(playerId)).length;
+    // subscribe() already returns the device count — re-listing was an extra
+    // read of rows we'd just written.
+    const devices = await pusher(env).subscribe(playerId, subscription);
     return json({ ok: true, devices });
   }
 
   if (path === '/push/unsubscribe' && method === 'POST') {
     const { endpoint } = await request.json().catch(() => ({}));
-    await pusher(env).unsubscribe(playerId, endpoint ? endpoint : { all: true });
-    return json({ ok: true, devices: (await pusher(env).list(playerId)).length });
+    const devices = await pusher(env).unsubscribe(playerId, endpoint ? endpoint : { all: true });
+    return json({ ok: true, devices });
   }
 
   // Fire a one-off push to this player's own devices, so delivery can be
@@ -101,9 +102,20 @@ function d1Store(db) {
       return (results || []).map(r => JSON.parse(r.subscription));
     },
     async set(playerId, subs) {
-      // Rewrite the player's set: the library hands back the full list after
-      // adding or pruning, so this stays in step with its own bookkeeping.
-      const stmts = [db.prepare('DELETE FROM push_subscriptions WHERE player_id = ?').bind(playerId)];
+      // The library hands back the whole list after any change. Delete only the
+      // rows that fell out of it, rather than clearing and reinserting — a
+      // blanket delete meant the ON CONFLICT below never fired, so created_at
+      // was silently reset on every re-subscribe.
+      const keep = subs.map(s => s.endpoint);
+      const stmts = [];
+      if (keep.length) {
+        stmts.push(db.prepare(
+          `DELETE FROM push_subscriptions
+           WHERE player_id = ? AND endpoint NOT IN (${keep.map(() => '?').join(',')})`
+        ).bind(playerId, ...keep));
+      } else {
+        stmts.push(db.prepare('DELETE FROM push_subscriptions WHERE player_id = ?').bind(playerId));
+      }
       for (const s of subs) {
         stmts.push(db.prepare(
           `INSERT INTO push_subscriptions (endpoint, player_id, subscription, last_seen_at)
