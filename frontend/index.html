@@ -132,7 +132,8 @@
     <div class="pause-card">
       <h2>Paused</h2>
       <button class="btn btn-primary btn-lg" onclick="App.resumeFromPause()">Resume</button>
-      <button class="btn btn-ghost btn-lg" onclick="App.quitToMenu()">Quit to Menu</button>
+      <button class="btn btn-ghost btn-lg" onclick="App.quitToMenu()">Back to Menu</button>
+      <p class="config-hint pause-note">Your game is saved — resume it any time.</p>
     </div>
   </div>
 
@@ -262,7 +263,7 @@
       </label>
     </section>
 
-    <button class="btn btn-primary btn-lg" onclick="App.saveSettings()">Save Settings</button>
+    <p class="config-hint settings-note">Changes apply as you make them.</p>
     <p class="version-tag" data-version></p>
   </div>
 </div>

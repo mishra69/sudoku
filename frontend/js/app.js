@@ -17,6 +17,7 @@ const App = {
     UI.applyTheme(settings.theme || 'light');
     UI.applyFontSize(settings.fontSize || 'medium');
     this._syncSettingsUI(settings);
+    this._bindSettingsControls();
 
     // Try to restore auth
     if (API.loadStoredAuth()) {
@@ -463,19 +464,27 @@ const App = {
 
   // ── Settings ──────────────────────────────────────────────────────────────
 
-  saveSettings() {
+  // Settings apply as you change them — there is nothing to confirm, and a Save
+  // button just adds a way to lose your choice by navigating away.
+  applySettings({ silent = false } = {}) {
     const theme    = document.querySelector('input[name="theme"]:checked')?.value || 'light';
     const fontSize = document.querySelector('input[name="font-size"]:checked')?.value || 'medium';
     const sound    = document.getElementById('setting-sound')?.checked ?? true;
 
-    const settings = { theme, fontSize, sound };
-    Storage.set('settings', settings);
+    Storage.set('settings', { theme, fontSize, sound });
 
     UI.applyTheme(theme);
     UI.applyFontSize(fontSize);
     Sound.setMuted(!sound);
     UI.updateMuteBtn();
-    Sound.tap();
+    if (!silent) Sound.tap();
+  },
+
+  _bindSettingsControls() {
+    const screen = document.getElementById('screen-settings');
+    if (!screen) return;
+    screen.querySelectorAll('input[name="theme"], input[name="font-size"], #setting-sound')
+      .forEach(el => el.addEventListener('change', () => this.applySettings()));
   },
 
   _syncSettingsUI(settings) {

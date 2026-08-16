@@ -825,3 +825,7 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   cursor: pointer;
 }
 .debug-panel button:hover { background: #475569; }
+
+/* Settings apply on change; this replaces the old Save button. */
+.settings-note { text-align: center; margin-top: 18px; }
+.pause-note { margin-top: 10px; text-align: center; opacity: 0.75; }
