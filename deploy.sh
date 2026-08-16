@@ -14,6 +14,7 @@
 #   VERIFY_URL=https://myapp.example.workers.dev
 #   VERIFY_PATH=/js/config.js      # a file whose body contains the version
 #   GIT_COMMIT=0                   # 1 to commit+push the stamp after deploying
+#   VENDOR_COPY="a/src.js:b/dest.js ..."   # copy package files into the assets dir
 #
 # Every setting is optional; anything absent is auto-detected or skipped.
 # Files are stamped by rewriting VERSION = '...' or VERSION: '...' in place,
@@ -43,6 +44,25 @@ if [ -z "${WORKER_DIR:-}" ]; then
   echo "error: no wrangler config found. Set WORKER_DIR in deploy.conf." >&2
   exit 1
 fi
+
+# ── Vendor browser-side copies of npm packages ─────────────────────────────
+# A browser can't resolve a bare specifier without a bundler, so any package
+# half that runs in the page has to be served from the assets directory. These
+# copies are committed (so a fresh clone and `wrangler dev` work), and refreshed
+# here — if the dependency moved, `git status` says so after a deploy instead of
+# the copy drifting silently.
+for pair in ${VENDOR_COPY:-}; do
+  src="${pair%%:*}"; dest="${pair#*:}"
+  if [ ! -f "$src" ]; then
+    echo "warning: VENDOR_COPY source '$src' missing — run npm install" >&2
+    continue
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if ! cmp -s "$src" "$dest"; then
+    cp "$src" "$dest"
+    echo "==> vendored $dest (changed)"
+  fi
+done
 
 # ── Stamp ──────────────────────────────────────────────────────────────────
 STAMPED=0

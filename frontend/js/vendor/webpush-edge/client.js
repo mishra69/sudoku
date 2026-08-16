@@ -1,13 +1,3 @@
-// Vendored from webpush-edge/src/client.js (v1.0.0) — https://github.com/mishra69/webpush-edge
-//
-// Adapted only by removing ES module syntax: this frontend is served as static
-// files with no bundler, so it loads as a classic script and exposes a global.
-// LOCAL DIVERGENCE: adds an optional `headers` option, threaded onto the
-// subscribe/unsubscribe/key fetches. Upstream sends bare fetches, which cannot
-// reach endpoints behind Bearer-token auth. Worth pushing back to webpush-edge;
-// until then, re-vendoring will drop this and it must be re-applied.
-
-const Push = (function () {
 // Page half — the subscription dance, minus any opinion about your UI.
 //
 // The parts that are easy to get subtly wrong and identical in every app:
@@ -15,6 +5,8 @@ const Push = (function () {
 // home-screen requirement, and discarding a subscription minted under a
 // rotated VAPID key.
 
+export { urlB64ToUint8Array } from "./sw.js";
+import { urlB64ToUint8Array } from "./sw.js";
 
 /**
  * What this browser can do right now.
@@ -27,7 +19,7 @@ const Push = (function () {
  *  - `granted`       — permission already given
  *  - `prompt`        — supported, not yet asked
  */
-function pushSupport() {
+export function pushSupport() {
   if (typeof window === "undefined") return { state: "unsupported", supported: false, isIOS: false, isStandalone: false };
 
   const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -47,7 +39,7 @@ function pushSupport() {
 }
 
 /** Register the service worker and wait until it's active. */
-async function registerServiceWorker(path = "/sw.js", options = { scope: "/" }) {
+export async function registerServiceWorker(path = "/sw.js", options = { scope: "/" }) {
   const registration = await navigator.serviceWorker.register(path, options);
   await navigator.serviceWorker.ready;
   return registration;
@@ -59,9 +51,13 @@ async function registerServiceWorker(path = "/sw.js", options = { scope: "/" }) 
  * Must be called from a user gesture when `prompt` is true — Safari ignores a
  * permission request that isn't tied to a click.
  *
+ * `headers` is merged into the requests to your own endpoints. Apps that
+ * authenticate with a bearer token rather than a cookie need it — without it
+ * these are bare fetches and a token-gated /push/subscribe returns 401.
+ *
  * @returns {Promise<{ok: boolean, reason?: string, subscription?: object, devices?: number}>}
  */
-async function subscribe({
+export async function subscribe({
   swPath = "/sw.js",
   keyUrl = "/push/key",
   subscribeUrl = "/push/subscribe",
@@ -111,7 +107,7 @@ async function subscribe({
 }
 
 /** Unsubscribe this device, locally and on the server. */
-async function unsubscribe({ swPath = "/sw.js", unsubscribeUrl = "/push/unsubscribe", headers = {} } = {}) {
+export async function unsubscribe({ swPath = "/sw.js", unsubscribeUrl = "/push/unsubscribe", headers = {} } = {}) {
   const registration = await registerServiceWorker(swPath);
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return { ok: true, devices: undefined };
@@ -127,7 +123,7 @@ async function unsubscribe({ swPath = "/sw.js", unsubscribeUrl = "/push/unsubscr
 }
 
 /** Is this device currently subscribed with the server's active key? */
-async function currentSubscription({ swPath = "/sw.js" } = {}) {
+export async function currentSubscription({ swPath = "/sw.js" } = {}) {
   if (!pushSupport().supported) return null;
   const registration = await registerServiceWorker(swPath);
   const subscription = await registration.pushManager.getSubscription();
@@ -141,15 +137,3 @@ function subscribedWithKey(subscription, key) {
   const b = urlB64ToUint8Array(key);
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
-
-function urlB64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(base64);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
-
-  return { pushSupport, registerServiceWorker, subscribe, unsubscribe, currentSubscription, urlB64ToUint8Array };
-})();
