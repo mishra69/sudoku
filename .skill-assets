@@ -11,3 +11,5 @@ deploy.sh                 deploy.sh
 # Intentionally NOT tracked — these are templates that every app customises,
 # so a diff against the skill is expected and meaningless:
 #   sw.js, manifest.json, head.html, pwa.css, version-check.js, _headers
+
+# skill-version: 1.0.0
