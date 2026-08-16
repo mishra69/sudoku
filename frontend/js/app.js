@@ -72,7 +72,11 @@ const App = {
     if (support.state === 'unsupported') { say('push not supported here'); return restore(); }
     if (support.state === 'blocked')     { say('notifications blocked in settings'); return restore(); }
 
-    say('subscribing…');
+    // Repeat taps reuse the existing subscription rather than registering a new
+    // one, so "subscribing" would be a lie after the first time.
+    const existing = await Push.currentSubscription({ swPath: '/sw.js?v=' + CONFIG.VERSION })
+      .catch(() => null);
+    say(existing ? 'confirming…' : 'subscribing…');
     const sub = await Push.subscribe({
       swPath: '/sw.js?v=' + CONFIG.VERSION,
       keyUrl: CONFIG.API_BASE + '/push/key',
