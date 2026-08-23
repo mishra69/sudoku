@@ -829,3 +829,13 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
 /* Settings apply on change; this replaces the old Save button. */
 .settings-note { text-align: center; margin-top: 18px; }
 .pause-note { margin-top: 10px; text-align: center; opacity: 0.75; }
+
+/* A difficulty that can't be started right now (pooled + offline). The input is
+   hidden and styled through its span, so the disabled state has to be shown there. */
+.radio-pill-disabled span,
+.radio-pill input:disabled + span {
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+.config-hint-warn { color: var(--warning); opacity: 1; }

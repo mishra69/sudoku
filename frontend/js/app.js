@@ -40,6 +40,9 @@ const App = {
     // Flush any queued offline requests now that we're online
     if (navigator.onLine) await Storage.flushQueue();
     window.addEventListener('online', () => Storage.flushQueue());
+    window.addEventListener('online',  () => this._updateDifficultyAvailability());
+    window.addEventListener('offline', () => this._updateDifficultyAvailability());
+    this._updateDifficultyAvailability();
 
     // Debug mode via ?debug=1
     if (new URLSearchParams(location.search).get('debug') === '1') {
@@ -174,7 +177,40 @@ const App = {
 
   showConfig() {
     Sound.tap();
+    this._updateDifficultyAvailability();   // connectivity may have changed since last time
     UI.showScreen('config');
+  },
+
+  // Pooled difficulties are fetched, so they can't be started without a
+  // connection. Disable them up front rather than letting someone pick one and
+  // fail at the last step.
+  _updateDifficultyAvailability() {
+    const online = navigator.onLine;
+    let selectionWasDisabled = false;
+
+    document.querySelectorAll('input[name="difficulty"]').forEach(input => {
+      const spec = CONFIG.DIFFICULTIES[input.value] || {};
+      const unavailable = !!spec.pooled && !online;
+      input.disabled = unavailable;
+      input.closest('.radio-pill')?.classList.toggle('radio-pill-disabled', unavailable);
+      if (unavailable && input.checked) { input.checked = false; selectionWasDisabled = true; }
+    });
+
+    // Don't leave the form with nothing selected — fall back to the hardest
+    // level that is still playable.
+    if (selectionWasDisabled) {
+      const fallback = [...document.querySelectorAll('input[name="difficulty"]')]
+        .filter(i => !i.disabled).pop();
+      if (fallback) fallback.checked = true;
+    }
+
+    const note = document.getElementById('pooled-note');
+    if (note) {
+      note.textContent = online
+        ? 'Insane is pre-generated and needs a connection.'
+        : "You're offline — Insane is unavailable until you reconnect.";
+      note.classList.toggle('config-hint-warn', !online);
+    }
   },
 
   _showConfigError(msg) {
