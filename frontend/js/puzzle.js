@@ -26,14 +26,27 @@ const Puzzle = {
   // fallback, because substituting an easier puzzle under a harder label is
   // worse than saying the level is unavailable.
   async fromPool(difficulty) {
-    if (!navigator.onLine) {
-      throw new Error(`${CONFIG.DIFFICULTIES[difficulty].label} needs a connection.`);
+    const label = CONFIG.DIFFICULTIES[difficulty].label;
+
+    // The buffer first: it makes starting instant, and it is the only path when
+    // offline.
+    let puzzle = PuzzleCache.take(difficulty);
+
+    if (!puzzle) {
+      if (!navigator.onLine) {
+        throw new Error(`${label} needs a connection — no puzzles saved for offline play.`);
+      }
+      const data = await API.getPuzzles(difficulty, PuzzleCache.TARGET);
+      const got = (data && data.puzzles) || [];
+      if (!got.length) throw new Error(`No ${label} puzzles available right now.`);
+      puzzle = got.shift();
+      PuzzleCache.add(difficulty, got);   // keep the rest for later
     }
-    const data = await API.getPuzzle(difficulty);
-    if (!data || !data.initial || !data.solution) {
-      throw new Error(`No ${CONFIG.DIFFICULTIES[difficulty].label} puzzles available right now.`);
-    }
-    return { initial: data.initial, solution: data.solution, difficulty, id: data.id };
+
+    // Refill in the background — never block starting a game on it.
+    PuzzleCache.refill(difficulty);
+
+    return { initial: puzzle.initial, solution: puzzle.solution, difficulty, id: puzzle.id };
   },
 
   // Convert 81-char string to 9x9 array (0 = empty)

@@ -68,8 +68,9 @@ const API = {
 
   // ── Puzzles ───────────────────────────────────────────────────────────────
 
-  async getPuzzle(difficulty) {
-    return this._rawFetch('GET', `/puzzle?difficulty=${encodeURIComponent(difficulty)}`);
+  async getPuzzles(difficulty, count = 1) {
+    return this._rawFetch('GET',
+      `/puzzle?difficulty=${encodeURIComponent(difficulty)}&count=${count}`);
   },
 
   // ── Scores ────────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ const App = {
       if (name) document.getElementById('welcome-name').textContent = name;
       UI.showScreen('menu');
       this.maybePromptInstall();
+      PuzzleCache.refillAll().then(() => this._updateDifficultyAvailability());
     } else {
       UI.showScreen('login');
       Auth.mountButton();
@@ -40,7 +41,10 @@ const App = {
     // Flush any queued offline requests now that we're online
     if (navigator.onLine) await Storage.flushQueue();
     window.addEventListener('online', () => Storage.flushQueue());
-    window.addEventListener('online',  () => this._updateDifficultyAvailability());
+    window.addEventListener('online',  () => {
+      PuzzleCache.refillAll().then(() => this._updateDifficultyAvailability());
+      this._updateDifficultyAvailability();
+    });
     window.addEventListener('offline', () => this._updateDifficultyAvailability());
     this._updateDifficultyAvailability();
 
@@ -190,7 +194,8 @@ const App = {
 
     document.querySelectorAll('input[name="difficulty"]').forEach(input => {
       const spec = CONFIG.DIFFICULTIES[input.value] || {};
-      const unavailable = !!spec.pooled && !online;
+      // A pooled level is still playable offline if puzzles are buffered.
+      const unavailable = !!spec.pooled && !online && PuzzleCache.count(input.value) === 0;
       input.disabled = unavailable;
       input.closest('.radio-pill')?.classList.toggle('radio-pill-disabled', unavailable);
       if (unavailable && input.checked) { input.checked = false; selectionWasDisabled = true; }
@@ -206,10 +211,13 @@ const App = {
 
     const note = document.getElementById('pooled-note');
     if (note) {
+      const buffered = PuzzleCache.count('insane');
       note.textContent = online
         ? 'Insane is pre-generated and needs a connection.'
-        : "You're offline — Insane is unavailable until you reconnect.";
-      note.classList.toggle('config-hint-warn', !online);
+        : buffered
+          ? `You're offline — ${buffered} Insane puzzle${buffered === 1 ? '' : 's'} saved for offline play.`
+          : "You're offline — Insane is unavailable until you reconnect.";
+      note.classList.toggle('config-hint-warn', !online && !buffered);
     }
   },
 

@@ -10,31 +10,39 @@ export async function handlePuzzles(method, url, playerId, env) {
   const difficulty = url.searchParams.get('difficulty');
   if (!difficulty) return json({ error: 'difficulty required' }, 400);
 
+  // Clients prefetch a small buffer so the level still works offline, so this
+  // serves a batch. Capped: one request shouldn't be able to reserve the pool.
+  const count = Math.min(Math.max(parseInt(url.searchParams.get('count') || '1', 10) || 1, 1), 5);
+
   // Least-served first, so the pool spreads out instead of everyone drawing the
   // same puzzle. The random tiebreak stops two players who ask at the same
-  // moment getting an identical grid.
-  const row = await env.DB.prepare(
+  // moment getting identical grids.
+  const { results } = await env.DB.prepare(
     `SELECT id, puzzle, solution, givens
        FROM puzzles
       WHERE difficulty = ?
       ORDER BY times_served ASC, RANDOM()
-      LIMIT 1`
-  ).bind(difficulty).first();
+      LIMIT ?`
+  ).bind(difficulty, count).all();
 
-  if (!row) return json({ error: `no puzzles available for "${difficulty}"` }, 404);
+  if (!results || results.length === 0) {
+    return json({ error: `no puzzles available for "${difficulty}"` }, 404);
+  }
 
-  // times_served is not just a statistic — the ordering above depends on it.
-  // Without this every player would be handed the same puzzle forever.
-  await env.DB.prepare(
-    'UPDATE puzzles SET times_served = times_served + 1 WHERE id = ?'
-  ).bind(row.id).run();
+  // times_served drives the ordering above — it is rotation, not a statistic.
+  // A prefetched puzzle counts as served even if it is never played: it has
+  // been handed to a device, and handing the same grid to someone else would
+  // be worse than retiring it early. How many people actually *attempted* a
+  // puzzle is a separate counter, recorded on first save.
+  await env.DB.batch(results.map(r =>
+    env.DB.prepare('UPDATE puzzles SET times_served = times_served + 1 WHERE id = ?').bind(r.id)
+  ));
 
   return json({
-    id: row.id,
-    initial: row.puzzle,
-    solution: row.solution,
-    givens: row.givens,
     difficulty,
+    puzzles: results.map(r => ({
+      id: r.id, initial: r.puzzle, solution: r.solution, givens: r.givens, difficulty,
+    })),
   });
 }
 
