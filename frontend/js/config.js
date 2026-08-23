@@ -8,11 +8,16 @@ const CONFIG = {
     // "inhuman" (17) never finish generating in reasonable time — measured at
     // >20s — and generation blocks the UI thread. 32 givens is three fewer than
     // very-hard, and measured at median 142ms / max 550ms over 25 runs.
-    master: { label: 'Master', startingPoints: 10000, sudokuLevel: 32 },
+    // Retired: Master only existed because `insane` couldn't be generated in a
+    // browser. Now that it's pre-generated, 32 givens is a lump between Expert
+    // (35) and Insane (26) that makes the top of the ladder lopsided. Kept here
+    // — but out of the picker — so historical scores and any half-finished
+    // Master game still resolve to a label and a starting score.
+    master: { label: 'Master', startingPoints: 10000, sudokuLevel: 32, retired: true },
     // Served from the pre-generated pool: at 26 givens this takes a median 71s
     // of CPU to generate, so it can't be made in the browser. Needs a network
     // connection; there is no local fallback for it.
-    insane: { label: 'Insane', startingPoints: 20000, sudokuLevel: 26, pooled: true },
+    insane: { label: 'Insane', startingPoints: 10000, sudokuLevel: 26, pooled: true },
   },
 
   SCORING: {
@@ -42,5 +47,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260823_0047',
+  VERSION: '20260823_1157',
 };
