@@ -177,6 +177,14 @@ const App = {
     UI.showScreen('config');
   },
 
+  _showConfigError(msg) {
+    const el = document.getElementById('config-error');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 6000);
+  },
+
   buildGameConfig() {
     const difficulty = document.querySelector('input[name="difficulty"]:checked')?.value || 'medium';
 
@@ -196,12 +204,25 @@ const App = {
     };
   },
 
-  startNewGame() {
+  async startNewGame() {
     Sound.tap();
     const config = this.buildGameConfig();
     this._gameConfig = config;
 
-    Game.start(config);
+    // Pooled difficulties are fetched, so this can fail — show why and stay on
+    // the config screen rather than dropping into an empty board.
+    const btn = document.querySelector('#screen-config .btn-primary');
+    const label = btn && btn.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    try {
+      await Game.start(config);
+    } catch (e) {
+      this._showConfigError(e.message || 'Could not start that game.');
+      return;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+
     this._setupGameScreen();
     UI.showScreen('game');
     Sound.ready();

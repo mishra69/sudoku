@@ -69,7 +69,9 @@
         <label class="radio-pill"><input type="radio" name="difficulty" value="hard" /><span>Hard</span></label>
         <label class="radio-pill"><input type="radio" name="difficulty" value="expert" /><span>Expert</span></label>
         <label class="radio-pill"><input type="radio" name="difficulty" value="master" /><span>Master</span></label>
+        <label class="radio-pill"><input type="radio" name="difficulty" value="insane" /><span>Insane</span></label>
       </div>
+      <p class="config-hint">Insane is pre-generated and needs a connection.</p>
     </section>
 
     <section class="config-section">
@@ -118,6 +120,7 @@
       <p class="config-hint">-10 pts/min · Timer pauses when you step away</p>
     </section>
 
+    <p id="config-error" class="error-msg" style="display:none;"></p>
     <button class="btn btn-primary btn-lg" onclick="App.startNewGame()">Start Game</button>
   </div>
 </div>

@@ -2,6 +2,7 @@ import { handleAuth, verifyToken } from './routes/auth.js';
 import { handleScores } from './routes/scores.js';
 import { handleGames } from './routes/games.js';
 import { handlePush, handlePushResubscribe } from './routes/push.js';
+import { handlePuzzles } from './routes/puzzles.js';
 
 // Static assets are matched before this Worker runs (see [assets] in
 // wrangler.toml), so anything arriving here is an /api/* call or a 404.
@@ -50,6 +51,10 @@ export default {
 
       if (apiPath.startsWith('/game/')) {
         return await handleGames(method, request, playerId, env);
+      }
+
+      if (apiPath === '/puzzle' || apiPath.startsWith('/puzzle?')) {
+        return await handlePuzzles(method, url, playerId, env);
       }
 
       if (apiPath.startsWith('/push/')) {

@@ -66,6 +66,12 @@ const API = {
     return this._rawFetch('POST', '/push/test');
   },
 
+  // ── Puzzles ───────────────────────────────────────────────────────────────
+
+  async getPuzzle(difficulty) {
+    return this._rawFetch('GET', `/puzzle?difficulty=${encodeURIComponent(difficulty)}`);
+  },
+
   // ── Scores ────────────────────────────────────────────────────────────────
 
   async saveScore(scoreData) {

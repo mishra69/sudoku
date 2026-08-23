@@ -5,8 +5,8 @@ const Game = {
 
   // ── Start / Load ──────────────────────────────────────────────────────────
 
-  start(config) {
-    const puzzle = Puzzle.generate(config.difficulty);
+  async start(config) {
+    const puzzle = await Puzzle.generate(config.difficulty);
     const startingPoints = CONFIG.DIFFICULTIES[config.difficulty].startingPoints;
     const initialGrid = Puzzle.stringToGrid(puzzle.initial);
 
