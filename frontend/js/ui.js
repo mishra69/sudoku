@@ -87,10 +87,18 @@ const UI = {
 
     this.selectedRow = row;
     this.selectedCol = col;
-    // Drives the same-digit highlight below. A mistake is transient, so it
-    // shouldn't light up its own matches.
+
+    // Drives the same-digit highlight. Tapping a filled cell switches to that
+    // digit; tapping an empty one KEEPS the current digit, so "where can this 3
+    // go?" survives the tap on the gap you found. A mistake is transient and
+    // never becomes the tracked digit.
     const v = state.current[row][col];
-    this.selectedValue = (v && state.cellTypes[row][col] !== 'mistake') ? v : null;
+    if (v && state.cellTypes[row][col] !== 'mistake') {
+      this.selectedValue = v;
+    } else if (v) {
+      this.selectedValue = null;   // a mistake clears it rather than persisting
+    }
+    // empty cell: leave selectedValue as it was
 
     // Re-render to update highlights without rebuilding DOM
     this.renderGrid(state.current, state.cellTypes);

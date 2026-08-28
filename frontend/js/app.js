@@ -406,7 +406,10 @@ const App = {
     }
 
     // Correct
+    UI.selectedValue = num;        // track what was just placed, not what was being hunted
     UI.updateCell(row, col, num, 'player');
+    UI.renderGrid(state.current, state.cellTypes);
+    UI.getCell(row, col)?.classList.add('cell-selected');
     UI.updateNumberCounts();
     Animations.cellCorrect(row, col);
     Sound.correct();
