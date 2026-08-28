@@ -2,6 +2,7 @@
 
 const UI = {
   selectedRow: null,
+  selectedValue: null,
   selectedCol: null,
 
   // ── Grid ──────────────────────────────────────────────────────────────────
@@ -67,6 +68,13 @@ const UI = {
         cell.classList.add('cell-highlight');
       }
     }
+
+    // Every other instance of the selected digit. Distinct from the row/col/box
+    // wash: this one is about the number, so it reads stronger. A mistake is
+    // excluded — it's about to be cleared, and matching it would be misleading.
+    if (this.selectedValue && value === this.selectedValue && type !== 'mistake') {
+      cell.classList.add('cell-same-value');
+    }
   },
 
   getCell(row, col) {
@@ -79,6 +87,10 @@ const UI = {
 
     this.selectedRow = row;
     this.selectedCol = col;
+    // Drives the same-digit highlight below. A mistake is transient, so it
+    // shouldn't light up its own matches.
+    const v = state.current[row][col];
+    this.selectedValue = (v && state.cellTypes[row][col] !== 'mistake') ? v : null;
 
     // Re-render to update highlights without rebuilding DOM
     this.renderGrid(state.current, state.cellTypes);
@@ -91,8 +103,9 @@ const UI = {
   clearSelection() {
     this.selectedRow = null;
     this.selectedCol = null;
+    this.selectedValue = null;
     document.querySelectorAll('.cell').forEach(c => {
-      c.classList.remove('cell-selected', 'cell-highlight');
+      c.classList.remove('cell-selected', 'cell-highlight', 'cell-same-value');
     });
   },
 

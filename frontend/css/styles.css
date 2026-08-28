@@ -25,6 +25,7 @@
   --cell-prefilled-bg: #e8edf5;
   --cell-selected-bg:  #dbeafe;
   --cell-highlight-bg: #f1f5fd;
+  --cell-same-bg:      #c7ddfb;
   --shadow:       0 4px 24px rgba(0,0,0,0.08);
   --shadow-sm:    0 2px 8px rgba(0,0,0,0.06);
   --radius:       16px;
@@ -45,6 +46,7 @@
   --cell-prefilled-bg: #0f1e35;
   --cell-selected-bg:  #1d3a6e;
   --cell-highlight-bg: #192842;
+  --cell-same-bg:      #2c4f8f;
   --shadow:       0 4px 24px rgba(0,0,0,0.4);
   --shadow-sm:    0 2px 8px rgba(0,0,0,0.3);
 }
@@ -839,3 +841,12 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   text-decoration: line-through;
 }
 .config-hint-warn { color: var(--warning); opacity: 1; }
+
+/* Every other instance of the selected digit. Stronger than the row/col/box
+   wash it sits on top of — that one is positional, this one is about the
+   number you're tracking — but still weaker than the selected cell itself. */
+.cell-same-value {
+  background: var(--cell-same-bg) !important;
+  font-weight: 700;
+}
+.cell-selected.cell-same-value { background: var(--cell-selected-bg) !important; }
