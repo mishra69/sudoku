@@ -42,7 +42,9 @@ const CONFIG = {
     THINK_MIN_MS:  20 * 1000,
     THINK_MAX_MS: 180 * 1000,
     MIN_TAPS:      4,     // cells inspected before placing — evidence of hunting
-    SPARSE_PEERS: 12,     // of the cell's 20 row/col/box peers, how few were filled
+    // How much emptier than the board this cell's neighbourhood must be. A
+    // fraction, so it means the same thing at every stage of the game.
+    MIN_ISOLATION: 0.12,
     SCARCE_ABS:    5,     // "few moves available" in absolute terms
     SCARCE_RATIO:  0.15,  // ...or as a fraction of what's left to fill
     MIN_EMPTY_CELLS: 8,   // the endgame is scarce by arithmetic, not by difficulty
@@ -74,5 +76,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260903_0017',
+  VERSION: '20260903_0027',
 };
