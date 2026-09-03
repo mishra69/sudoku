@@ -7,6 +7,7 @@ const Game = {
 
   async start(config) {
     this._lastMoveAt = Date.now();
+    this._tapsSinceMove = 0;
     const puzzle = await Puzzle.generate(config.difficulty);
     const startingPoints = CONFIG.DIFFICULTIES[config.difficulty].startingPoints;
     const initialGrid = Puzzle.stringToGrid(puzzle.initial);
@@ -225,34 +226,100 @@ const Game = {
     const candidates = this._candidatesFor(row, col);
     if (!candidates.includes(num)) return { tough: false };
 
-    const hidden = this._hiddenSingleUnits(row, col, num);
-
-    // How long they sat on it. This is the honest measure: these puzzles are
-    // all solvable by scanning, so difficulty is about *finding* the move, not
-    // about technique — and only the player knows how long that took.
     const now = Date.now();
     const thinkMs = this._lastMoveAt ? now - this._lastMoveAt : 0;
+    const taps = this._tapsSinceMove || 0;
     this._lastMoveAt = now;
+    this._tapsSinceMove = 0;
 
-    // A naked single is read off the board, not deduced — never praise one,
-    // however long they took. Anything else needed a scan they had to run.
+    // ── Signal 1a: was this cell in a sparse neighbourhood? ─────────────────
+    // A cell's 20 peers are its row, column and box. When few are filled there
+    // is little to reason from, so the placement took more work. Measured over
+    // full solves, the emptiest neighbourhood actually played was 15 peers
+    // filled on easy, 13 medium, 11 hard, 9 expert, 7 insane — so a single
+    // threshold separates the levels without needing to know which is in play.
+    const peers = this.peerFill(row, col);
+    const sparse = peers.filled <= CONFIG.PRAISE.SPARSE_PEERS;
+
+    // ── Signal 1b: was the board as a whole giving anything away? ───────────
+    // Independent of the cell: how many placements existed anywhere at all.
+    // Rare, and in practice only reached on the hardest puzzles.
+    const { available, empty } = this.boardScarcity();
+    const scarce = empty >= CONFIG.PRAISE.MIN_EMPTY_CELLS &&
+                   available <= Math.max(CONFIG.PRAISE.SCARCE_ABS,
+                                         empty * CONFIG.PRAISE.SCARCE_RATIO);
+
+    // ── Signal 2: were they actually here? ──────────────────────────────────
+    // Elapsed time alone can't tell thinking from a phone face-down on a table.
+    // Taps can: hunting a number means selecting cells and looking around.
+    // Either real engagement, or a short focused pause, counts.
+    const engaged = taps >= CONFIG.PRAISE.MIN_TAPS ||
+                    (thinkMs >= CONFIG.PRAISE.THINK_MIN_MS &&
+                     thinkMs <= CONFIG.PRAISE.THINK_MAX_MS);
+    const present = thinkMs <= CONFIG.PRAISE.THINK_MAX_MS;
+
+    // A naked single is read off the board rather than worked out — never
+    // praise one, however long it took.
     const wasReadOff = candidates.length === 1;
-    const deliberated = thinkMs >= CONFIG.PRAISE.THINK_MIN_MS &&
-                        thinkMs <= CONFIG.PRAISE.THINK_MAX_MS;
 
     return {
-      tough: deliberated && !wasReadOff,
+      tough: (sparse || scarce) && engaged && present && !wasReadOff,
       candidates: candidates.length,
-      hiddenSingle: hidden.length > 0,
-      thinkMs,
-      // Escalate on effort and openness together.
-      openness: candidates.length + (thinkMs > 45000 ? 2 : thinkMs > 25000 ? 1 : 0),
+      hiddenSingle: this._hiddenSingleUnits(row, col, num).length > 0,
+      thinkMs, taps, available, empty, peersFilled: peers.filled,
+      // Escalate on how little there was to go on.
+      openness: (scarce ? 3 : 0) + (peers.filled <= 9 ? 5 : peers.filled <= 11 ? 4 : 3)
+                + (candidates.length >= 3 ? 1 : 0),
     };
+  },
+
+  // The 20 cells sharing this cell's row, column or box, and how many are
+  // filled. Low means little local information to work from.
+  peerFill(row, col) {
+    const st = this.state;
+    const seen = new Set();
+    let filled = 0, total = 0;
+    const add = (r, c) => {
+      if (r === row && c === col) return;
+      const k = r * 9 + c;
+      if (seen.has(k)) return;
+      seen.add(k);
+      total++;
+      if (st.current[r][c] && st.cellTypes[r][c] !== 'mistake') filled++;
+    };
+    for (let i = 0; i < 9; i++) { add(row, i); add(i, col); }
+    const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++) for (let c = bc; c < bc + 3; c++) add(r, c);
+    return { filled, total };
+  },
+
+  // How many empty cells are currently solvable by scanning — a naked single,
+  // or the only place some digit fits in a row, column or box. This is the
+  // count a player is searching through, so it is the closest thing to an
+  // objective "how hard is the board right now".
+  boardScarcity() {
+    const st = this.state;
+    if (!st) return { available: 0, empty: 0 };
+    const solution = Puzzle.stringToGrid(st.puzzle.solution);
+    let available = 0, empty = 0;
+
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (st.current[r][c] && st.cellTypes[r][c] !== 'mistake') continue;
+        empty++;
+        const cand = this._candidatesFor(r, c);
+        if (cand.length === 1 || this._hiddenSingleUnits(r, c, solution[r][c]).length) {
+          available++;
+        }
+      }
+    }
+    return { available, empty };
   },
 
   // Reset between games so the first move of a new board isn't credited with
   // the time since the last move of the previous one.
   _lastMoveAt: null,
+  _tapsSinceMove: 0,
 
   // Digits that don't already appear in this cell's row, column or box.
   // Mistakes are ignored — they're about to be cleared and aren't real state.

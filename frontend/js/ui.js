@@ -119,6 +119,9 @@ const UI = {
 
   _onCellClick(row, col) {
     Sound.tap();
+    // Evidence the player is present and searching, as opposed to elapsed time
+    // that might just be a phone left on a table.
+    if (Game.state) Game._tapsSinceMove = (Game._tapsSinceMove || 0) + 1;
     App.cancelHint();   // touching the board means you didn't mean the hint
     const { state } = Game;
     if (!state || state.completed || state.gameOver) return;
