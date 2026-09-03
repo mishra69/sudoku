@@ -6,6 +6,7 @@ const Game = {
   // ── Start / Load ──────────────────────────────────────────────────────────
 
   async start(config) {
+    this._lastMoveAt = Date.now();
     const puzzle = await Puzzle.generate(config.difficulty);
     const startingPoints = CONFIG.DIFFICULTIES[config.difficulty].startingPoints;
     const initialGrid = Puzzle.stringToGrid(puzzle.initial);
@@ -61,6 +62,10 @@ const Game = {
     const solution = Puzzle.stringToGrid(state.puzzle.solution);
     const isCorrect = solution[row][col] === num;
 
+    // Must be measured before the placement, while the board still shows what
+    // the player was actually looking at.
+    const rating = isCorrect ? this.rateMove(row, col, num) : null;
+
     // Save to history before mutation
     state.history.push({
       row, col,
@@ -103,7 +108,7 @@ const Game = {
       state.completed = true;
     }
 
-    return { type: 'correct', completions, bonus, isComplete };
+    return { type: 'correct', completions, bonus, isComplete, rating };
   },
 
   // Clear a mistake cell (called after animation)
@@ -202,6 +207,94 @@ const Game = {
 
   isHintLimitReached() {
     return this.state ? this._isHintLimitReached() : false;
+  },
+
+  // ── How hard was that move? ────────────────────────────────────────────────
+  // Measured from the board as it stood BEFORE the move, so it has to be called
+  // first. The question is how much deduction the placement actually required:
+  //
+  //   naked single  — only one digit was legal in the cell. Read off, not solved.
+  //   hidden single — the digit fitted in only one cell of some row/col/box.
+  //                   Findable by scanning; the bread and butter of easy puzzles.
+  //   neither       — several digits were legal here, and this digit fitted in
+  //                   several cells of every unit. Nothing local determines it,
+  //                   so the player reasoned beyond the immediate constraints.
+  //
+  // That last case is the one worth applauding.
+  rateMove(row, col, num) {
+    const candidates = this._candidatesFor(row, col);
+    if (!candidates.includes(num)) return { tough: false };
+
+    const hidden = this._hiddenSingleUnits(row, col, num);
+
+    // How long they sat on it. This is the honest measure: these puzzles are
+    // all solvable by scanning, so difficulty is about *finding* the move, not
+    // about technique — and only the player knows how long that took.
+    const now = Date.now();
+    const thinkMs = this._lastMoveAt ? now - this._lastMoveAt : 0;
+    this._lastMoveAt = now;
+
+    // A naked single is read off the board, not deduced — never praise one,
+    // however long they took. Anything else needed a scan they had to run.
+    const wasReadOff = candidates.length === 1;
+    const deliberated = thinkMs >= CONFIG.PRAISE.THINK_MIN_MS &&
+                        thinkMs <= CONFIG.PRAISE.THINK_MAX_MS;
+
+    return {
+      tough: deliberated && !wasReadOff,
+      candidates: candidates.length,
+      hiddenSingle: hidden.length > 0,
+      thinkMs,
+      // Escalate on effort and openness together.
+      openness: candidates.length + (thinkMs > 45000 ? 2 : thinkMs > 25000 ? 1 : 0),
+    };
+  },
+
+  // Reset between games so the first move of a new board isn't credited with
+  // the time since the last move of the previous one.
+  _lastMoveAt: null,
+
+  // Digits that don't already appear in this cell's row, column or box.
+  // Mistakes are ignored — they're about to be cleared and aren't real state.
+  _candidatesFor(row, col) {
+    const { current, cellTypes } = this.state;
+    const taken = new Set();
+    const add = (r, c) => {
+      const v = current[r][c];
+      if (v && cellTypes[r][c] !== 'mistake') taken.add(v);
+    };
+    for (let i = 0; i < 9; i++) { add(row, i); add(i, col); }
+    const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++) for (let c = bc; c < bc + 3; c++) add(r, c);
+
+    const out = [];
+    for (let n = 1; n <= 9; n++) if (!taken.has(n)) out.push(n);
+    return out;
+  },
+
+  // Units where this is the only empty cell `num` could go — i.e. the placement
+  // was findable by scanning one row, column or box.
+  _hiddenSingleUnits(row, col, num) {
+    const { current, cellTypes } = this.state;
+    const isEmpty = (r, c) => !current[r][c] || cellTypes[r][c] === 'mistake';
+    const fits = (r, c) => isEmpty(r, c) && this._candidatesFor(r, c).includes(num);
+
+    const units = [];
+    const rowCells = [], colCells = [], boxCells = [];
+    for (let i = 0; i < 9; i++) {
+      if (i !== col && fits(row, i)) rowCells.push(i);
+      if (i !== row && fits(i, col)) colCells.push(i);
+    }
+    const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++) {
+      for (let c = bc; c < bc + 3; c++) {
+        if ((r !== row || c !== col) && fits(r, c)) boxCells.push([r, c]);
+      }
+    }
+    if (rowCells.length === 0) units.push('row');
+    if (colCells.length === 0) units.push('col');
+    if (boxCells.length === 0) units.push('box');
+    return units;
   },
 
   _checkCompletions(row, col, solution) {

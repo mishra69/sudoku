@@ -850,3 +850,31 @@ h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform
   font-weight: 700;
 }
 .cell-selected.cell-same-value { background: var(--cell-selected-bg) !important; }
+
+/* Praise for a genuinely hard deduction. Rises from the solved cell and fades;
+   pointer-events off so it can never swallow the next tap. */
+.praise-toast {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--hint-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  pointer-events: none;
+  z-index: 900;
+  animation: praiseRise 1.9s ease-out forwards;
+}
+@keyframes praiseRise {
+  0%   { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  30%  { transform: translate(-50%, -55%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -140%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .praise-toast { animation: praiseFade 1.9s ease-out forwards; }
+  @keyframes praiseFade { 0%,80% { opacity: 1 } 100% { opacity: 0 } }
+}

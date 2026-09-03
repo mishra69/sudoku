@@ -166,6 +166,28 @@ const App = {
   // Sign-in lives in auth.js — Google's button owns the whole flow and calls
   // back into Auth._onCredential.
 
+  // Praise is only worth anything if it's rare. Two guards: a cooldown in moves,
+  // and a per-game cap — otherwise it becomes wallpaper and stops registering.
+  _praise: { lastMove: -99, given: 0, moves: 0 },
+
+  _maybePraise(rating, row, col) {
+    this._praise.moves++;
+    if (!rating || !rating.tough) return;
+    if (this._praise.given >= CONFIG.PRAISE.MAX_PER_GAME) return;
+    if (this._praise.moves - this._praise.lastMove < CONFIG.PRAISE.COOLDOWN_MOVES) return;
+
+    // The more digits were legal in that cell, the less the board told them and
+    // the more they worked out. Escalate the wording with it.
+    const tier = rating.openness >= 7 ? 'high' : rating.openness >= 5 ? 'mid' : 'low';
+    const pool = CONFIG.PRAISE.MESSAGES[tier];
+    const text = pool[Math.floor(Math.random() * pool.length)];
+
+    this._praise.lastMove = this._praise.moves;
+    this._praise.given++;
+    Animations.praise(text, row, col);
+    Sound.chime();   // the existing 'something good happened' cue
+  },
+
   _showLoginError(msg) {
     const el = document.getElementById('login-error');
     if (el) { el.textContent = msg; el.style.display = 'block'; }
@@ -258,6 +280,7 @@ const App = {
     const btn = document.querySelector('#screen-config .btn-primary');
     const label = btn && btn.textContent;
     if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    this._praise = { lastMove: -99, given: 0, moves: 0 };
     try {
       await Game.start(config);
     } catch (e) {
@@ -406,6 +429,7 @@ const App = {
     }
 
     // Correct
+    this._maybePraise(result.rating, row, col);
     UI.selectedValue = num;        // track what was just placed, not what was being hunted
     UI.updateCell(row, col, num, 'player');
     UI.renderGrid(state.current, state.cellTypes);

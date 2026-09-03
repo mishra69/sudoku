@@ -89,6 +89,27 @@ const Animations = {
   },
 
   // Mistake counter bump
+  // Anchored to the cell that was just solved, so it reads as being about that
+  // deduction rather than as a generic notification.
+  praise(text, row, col) {
+    const cell = UI.getCell(row, col);
+    const el = document.createElement('div');
+    el.className = 'praise-toast';
+    el.textContent = text;
+
+    if (cell) {
+      const r = cell.getBoundingClientRect();
+      el.style.left = `${r.left + r.width / 2}px`;
+      el.style.top  = `${r.top}px`;
+    } else {
+      el.style.left = '50%';
+      el.style.top  = '40%';
+    }
+
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  },
+
   mistakeCounterBump() {
     const el = document.getElementById('mistake-counter');
     if (!el) return;
