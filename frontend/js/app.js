@@ -168,7 +168,7 @@ const App = {
 
   // Praise is only worth anything if it's rare. Two guards: a cooldown in moves,
   // and a per-game cap — otherwise it becomes wallpaper and stops registering.
-  _praise: { lastMove: -99, given: 0, moves: 0 },
+  _praise: { lastMove: -99, given: 0, moves: 0, bar: 0 },
 
   _maybePraise(rating, row, col) {
     this._praise.moves++;
@@ -176,14 +176,25 @@ const App = {
     if (this._praise.given >= CONFIG.PRAISE.MAX_PER_GAME) return;
     if (this._praise.moves - this._praise.lastMove < CONFIG.PRAISE.COOLDOWN_MOVES) return;
 
-    // The more digits were legal in that cell, the less the board told them and
-    // the more they worked out. Escalate the wording with it.
-    const tier = rating.openness >= 7 ? 'high' : rating.openness >= 5 ? 'mid' : 'low';
+    // Which four to spend the budget on? A true "top four" would need to see
+    // the whole game first, and praise has to land on the move it's about. So
+    // the bar rises instead: each compliment must beat the one before it, which
+    // spends the budget on progressively harder moments and leaves the biggest
+    // wording for the end. The bar then eases back a little each move, or one
+    // early spike would silence the rest of the game.
+    const bar = Math.max(CONFIG.PRAISE.MIN_HARDNESS,
+      this._praise.bar - (this._praise.moves - this._praise.lastMove) * CONFIG.PRAISE.BAR_DECAY);
+    if (rating.hardness < bar) return;
+
+    // Wording follows the actual score, not a random pick.
+    const h = rating.hardness;
+    const tier = h >= CONFIG.PRAISE.TIER_HIGH ? 'high' : h >= CONFIG.PRAISE.TIER_MID ? 'mid' : 'low';
     const pool = CONFIG.PRAISE.MESSAGES[tier];
     const text = pool[Math.floor(Math.random() * pool.length)];
 
     this._praise.lastMove = this._praise.moves;
     this._praise.given++;
+    this._praise.bar = rating.hardness;
     Animations.praise(text, row, col);
     Sound.chime();   // the existing 'something good happened' cue
   },
@@ -280,7 +291,7 @@ const App = {
     const btn = document.querySelector('#screen-config .btn-primary');
     const label = btn && btn.textContent;
     if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
-    this._praise = { lastMove: -99, given: 0, moves: 0 };
+    this._praise = { lastMove: -99, given: 0, moves: 0, bar: 0 };
     try {
       await Game.start(config);
     } catch (e) {

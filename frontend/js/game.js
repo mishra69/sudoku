@@ -267,9 +267,13 @@ const Game = {
       candidates: candidates.length,
       hiddenSingle: this._hiddenSingleUnits(row, col, num).length > 0,
       thinkMs, taps, available, empty, peersFilled: peers.filled,
-      // Escalate on how little there was to go on.
-      openness: (scarce ? 3 : 0) + (peers.filled <= 9 ? 5 : peers.filled <= 11 ? 4 : 3)
-                + (candidates.length >= 3 ? 1 : 0),
+      // A single number for how hard this was, so compliments can be ranked
+      // against each other rather than handed out first-come-first-served.
+      // Roughly 0-10: an empty neighbourhood dominates, a board with nothing
+      // else to give adds to it, and more candidates means more to eliminate.
+      hardness: (CONFIG.PRAISE.SPARSE_PEERS + 2 - Math.min(peers.filled, 14)) * 1.1
+                + (scarce ? 3 : 0)
+                + Math.min(candidates.length, 5) * 0.4,
     };
   },
 
