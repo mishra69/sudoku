@@ -46,6 +46,13 @@ const CONFIG = {
     SCARCE_ABS:    5,     // "few moves available" in absolute terms
     SCARCE_RATIO:  0.15,  // ...or as a fraction of what's left to fill
     MIN_EMPTY_CELLS: 8,   // the endgame is scarce by arithmetic, not by difficulty
+    // Tuned by simulating full games: at 0.1 decay the compliments are the
+    // hardest moments but there is only ~1 per game; at 0.4 there are ~3 but
+    // diluted. This gives 2-3 on expert/insane at a high average hardness.
+    MIN_HARDNESS:  4,    // floor the rising bar decays back to
+    BAR_DECAY:     0.25, // how fast the bar eases down per move since the last one
+    TIER_MID:      6,    // hardness at which the wording steps up
+    TIER_HIGH:     9,
     COOLDOWN_MOVES: 6,   // moves between compliments
     MAX_PER_GAME:   4,   // beyond this it stops meaning anything
     MESSAGES: {
@@ -67,5 +74,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260903_0009',
+  VERSION: '20260903_0017',
 };
