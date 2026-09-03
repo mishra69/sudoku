@@ -41,6 +41,11 @@ const CONFIG = {
     // (5 min) is too coarse to tell the difference at this scale.
     THINK_MIN_MS:  20 * 1000,
     THINK_MAX_MS: 180 * 1000,
+    MIN_TAPS:      4,     // cells inspected before placing — evidence of hunting
+    SPARSE_PEERS: 12,     // of the cell's 20 row/col/box peers, how few were filled
+    SCARCE_ABS:    5,     // "few moves available" in absolute terms
+    SCARCE_RATIO:  0.15,  // ...or as a fraction of what's left to fill
+    MIN_EMPTY_CELLS: 8,   // the endgame is scarce by arithmetic, not by difficulty
     COOLDOWN_MOVES: 6,   // moves between compliments
     MAX_PER_GAME:   4,   // beyond this it stops meaning anything
     MESSAGES: {
@@ -62,5 +67,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260902_2350',
+  VERSION: '20260903_0009',
 };
