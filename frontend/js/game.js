@@ -232,14 +232,21 @@ const Game = {
     this._lastMoveAt = now;
     this._tapsSinceMove = 0;
 
-    // ── Signal 1a: was this cell in a sparse neighbourhood? ─────────────────
-    // A cell's 20 peers are its row, column and box. When few are filled there
-    // is little to reason from, so the placement took more work. Measured over
-    // full solves, the emptiest neighbourhood actually played was 15 peers
-    // filled on easy, 13 medium, 11 hard, 9 expert, 7 insane — so a single
-    // threshold separates the levels without needing to know which is in play.
+    // ── Signal 1a: was this cell isolated, relative to the board? ───────────
+    // A cell's 20 peers are its row, column and box; few filled means little to
+    // reason from. But an absolute threshold just measures how early it is —
+    // every neighbourhood is empty at the start. Measured that way, qualifying
+    // moments clustered entirely in the opening (hard: 5 of 5 in the first
+    // quarter, nothing after) which is when moves are easiest to find.
+    //
+    // So compare the cell against the board as it stands: a neighbourhood
+    // emptier than the rest of the grid is genuinely short of information,
+    // whether that happens on move three or move forty.
     const peers = this.peerFill(row, col);
-    const sparse = peers.filled <= CONFIG.PRAISE.SPARSE_PEERS;
+    const boardFilled = this.boardFillRatio();
+    const peerFilled = peers.filled / peers.total;
+    const isolation = boardFilled - peerFilled;   // >0 means emptier than average
+    const sparse = isolation >= CONFIG.PRAISE.MIN_ISOLATION;
 
     // ── Signal 1b: was the board as a whole giving anything away? ───────────
     // Independent of the cell: how many placements existed anywhere at all.
@@ -267,14 +274,28 @@ const Game = {
       candidates: candidates.length,
       hiddenSingle: this._hiddenSingleUnits(row, col, num).length > 0,
       thinkMs, taps, available, empty, peersFilled: peers.filled,
+      isolation: +isolation.toFixed(3), boardFilled: +boardFilled.toFixed(3),
       // A single number for how hard this was, so compliments can be ranked
       // against each other rather than handed out first-come-first-served.
       // Roughly 0-10: an empty neighbourhood dominates, a board with nothing
       // else to give adds to it, and more candidates means more to eliminate.
-      hardness: (CONFIG.PRAISE.SPARSE_PEERS + 2 - Math.min(peers.filled, 14)) * 1.1
+      hardness: Math.max(0, isolation) * 22
                 + (scarce ? 3 : 0)
                 + Math.min(candidates.length, 5) * 0.4,
     };
+  },
+
+  // Fraction of the whole grid that is filled — the baseline a cell's own
+  // neighbourhood is judged against.
+  boardFillRatio() {
+    const st = this.state;
+    let filled = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (st.current[r][c] && st.cellTypes[r][c] !== 'mistake') filled++;
+      }
+    }
+    return filled / 81;
   },
 
   // The 20 cells sharing this cell's row, column or box, and how many are

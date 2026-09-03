@@ -173,8 +173,16 @@ const App = {
   _maybePraise(rating, row, col) {
     this._praise.moves++;
     if (!rating || !rating.tough) return;
-    if (this._praise.given >= CONFIG.PRAISE.MAX_PER_GAME) return;
-    if (this._praise.moves - this._praise.lastMove < CONFIG.PRAISE.COOLDOWN_MOVES) return;
+
+    // Record the decision either way. What the bar *rejected* is as informative
+    // as what it showed, and the thresholds so far were tuned against simulated
+    // play, which can't model how a person really hunts for a move.
+    const log = (shown, message, bar) => this._logPraise(rating, shown, message, bar);
+
+    if (this._praise.given >= CONFIG.PRAISE.MAX_PER_GAME) return log(false, 'capped', null);
+    if (this._praise.moves - this._praise.lastMove < CONFIG.PRAISE.COOLDOWN_MOVES) {
+      return log(false, 'cooldown', null);
+    }
 
     // Which four to spend the budget on? A true "top four" would need to see
     // the whole game first, and praise has to land on the move it's about. So
@@ -184,7 +192,7 @@ const App = {
     // early spike would silence the rest of the game.
     const bar = Math.max(CONFIG.PRAISE.MIN_HARDNESS,
       this._praise.bar - (this._praise.moves - this._praise.lastMove) * CONFIG.PRAISE.BAR_DECAY);
-    if (rating.hardness < bar) return;
+    if (rating.hardness < bar) return log(false, 'below-bar', bar);
 
     // Wording follows the actual score, not a random pick.
     const h = rating.hardness;
@@ -197,6 +205,33 @@ const App = {
     this._praise.bar = rating.hardness;
     Animations.praise(text, row, col);
     Sound.chime();   // the existing 'something good happened' cue
+    log(true, text, bar);
+  },
+
+  _praiseLog: [],
+
+  _logPraise(rating, shown, message, bar) {
+    const st = Game.state;
+    if (!st) return;
+    this._praiseLog.push({
+      difficulty: st.config.difficulty,
+      puzzleId: st.puzzle.id ?? null,
+      shown, message, bar,
+      hardness: rating.hardness, isolation: rating.isolation,
+      peersFilled: rating.peersFilled, boardFilled: rating.boardFilled,
+      candidates: rating.candidates, available: rating.available,
+      empty: rating.empty, thinkMs: rating.thinkMs, taps: rating.taps,
+      moveIndex: this._praise.moves,
+    });
+  },
+
+  // Sent once the game is over — instrumentation shouldn't spend requests
+  // while someone is playing. Failure is silent by design.
+  async _flushPraiseLog() {
+    const events = this._praiseLog;
+    this._praiseLog = [];
+    if (!events.length || !navigator.onLine) return;
+    try { await API.sendPraiseTelemetry(events); } catch (e) { /* never surface */ }
   },
 
   _showLoginError(msg) {
@@ -292,6 +327,7 @@ const App = {
     const label = btn && btn.textContent;
     if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
     this._praise = { lastMove: -99, given: 0, moves: 0, bar: 0 };
+    this._praiseLog = [];
     try {
       await Game.start(config);
     } catch (e) {
@@ -515,6 +551,7 @@ const App = {
   // ── End game ──────────────────────────────────────────────────────────────
 
   async _endGame(completed) {
+    this._flushPraiseLog();
     Timer.stop();
     this._stopAutosave();
     WakeLock.disable();   // game over — stop holding the screen on

@@ -73,6 +73,10 @@ const API = {
       `/puzzle?difficulty=${encodeURIComponent(difficulty)}&count=${count}`);
   },
 
+  async sendPraiseTelemetry(events) {
+    return this._rawFetch('POST', '/telemetry/praise', { events });
+  },
+
   // ── Scores ────────────────────────────────────────────────────────────────
 
   async saveScore(scoreData) {
