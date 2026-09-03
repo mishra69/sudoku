@@ -35,6 +35,21 @@ const CONFIG = {
   // Only touches and key presses count as activity, so this is really "how
   // long may you stare at the board without touching it". 2 minutes was short
   // enough that thinking through a hard cell paused the timer.
+  PRAISE: {
+    // Time spent on the move. Below the floor it wasn't really deliberation;
+    // above the ceiling they probably put the phone down, and the idle timer
+    // (5 min) is too coarse to tell the difference at this scale.
+    THINK_MIN_MS:  20 * 1000,
+    THINK_MAX_MS: 180 * 1000,
+    COOLDOWN_MOVES: 6,   // moves between compliments
+    MAX_PER_GAME:   4,   // beyond this it stops meaning anything
+    MESSAGES: {
+      low:  ['Nice one', 'Good spot', 'Sharp'],
+      mid:  ['Brilliant', 'Great deduction', 'Very sharp'],
+      high: ['Genius!', 'Outstanding', 'How did you see that?'],
+    },
+  },
+
   IDLE_TIMEOUT_MS:        5 * 60 * 1000,   // 5 minutes
   // How often that's checked. At the old 30s the pause could land up to half a
   // minute after the timeout, which made it feel arbitrary.
@@ -47,5 +62,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260827_2107',
+  VERSION: '20260902_2350',
 };
