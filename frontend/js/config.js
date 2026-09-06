@@ -41,7 +41,11 @@ const CONFIG = {
     // (5 min) is too coarse to tell the difference at this scale.
     THINK_MIN_MS:  20 * 1000,
     THINK_MAX_MS: 180 * 1000,
-    MIN_TAPS:      4,     // cells inspected before placing — evidence of hunting
+    // Real play is about one cell tap per move (select, then type), so a
+    // threshold of 4 required hunting that mostly doesn't happen. Two means
+    // "looked at more than the cell you filled".
+    MIN_TAPS:      2,
+    MAX_LOG_EVENTS: 80,   // bound the telemetry batch for a long game
     // How much emptier than the board this cell's neighbourhood must be. A
     // fraction, so it means the same thing at every stage of the game.
     MIN_ISOLATION: 0.12,
@@ -76,5 +80,5 @@ const CONFIG = {
   API_BASE: '/api',
 
   // Stamped by deploy.sh at deploy time. 'dev' means running unstamped locally.
-  VERSION: '20260903_0027',
+  VERSION: '20260905_2301',
 };
