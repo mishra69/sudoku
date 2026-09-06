@@ -269,7 +269,16 @@ const Game = {
     // praise one, however long it took.
     const wasReadOff = candidates.length === 1;
 
+    // Which gate rejected it — recorded so real games can show where the
+    // thresholds actually sit, rather than being tuned by simulation again.
+    let rejectedBy = null;
+    if (wasReadOff) rejectedBy = 'read-off';
+    else if (!present) rejectedBy = 'away';
+    else if (!(sparse || scarce)) rejectedBy = 'not-isolated';
+    else if (!engaged) rejectedBy = 'not-engaged';
+
     return {
+      rejectedBy,
       tough: (sparse || scarce) && engaged && present && !wasReadOff,
       candidates: candidates.length,
       hiddenSingle: this._hiddenSingleUnits(row, col, num).length > 0,

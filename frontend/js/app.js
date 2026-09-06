@@ -172,13 +172,15 @@ const App = {
 
   _maybePraise(rating, row, col) {
     this._praise.moves++;
-    if (!rating || !rating.tough) return;
+    if (!rating) return;
 
-    // Record the decision either way. What the bar *rejected* is as informative
-    // as what it showed, and the thresholds so far were tuned against simulated
-    // play, which can't model how a person really hunts for a move.
+    // Log EVERY correct move, not just qualifying ones. Only logging what
+    // passed made the first round of telemetry useless: three real games
+    // produced zero rows, which told us nothing about which gate was rejecting
+    // them. The distribution of near-misses is the whole point.
     const log = (shown, message, bar) => this._logPraise(rating, shown, message, bar);
 
+    if (!rating.tough) return log(false, rating.rejectedBy || 'not-tough', null);
     if (this._praise.given >= CONFIG.PRAISE.MAX_PER_GAME) return log(false, 'capped', null);
     if (this._praise.moves - this._praise.lastMove < CONFIG.PRAISE.COOLDOWN_MOVES) {
       return log(false, 'cooldown', null);
@@ -213,6 +215,7 @@ const App = {
   _logPraise(rating, shown, message, bar) {
     const st = Game.state;
     if (!st) return;
+    if (this._praiseLog.length >= CONFIG.PRAISE.MAX_LOG_EVENTS) return;
     this._praiseLog.push({
       difficulty: st.config.difficulty,
       puzzleId: st.puzzle.id ?? null,
