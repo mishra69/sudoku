@@ -15,7 +15,14 @@ database_id = "98f600ee-373a-4c78-b853-0ff49238e109"
 
 # Set TOKEN_SECRET via: wrangler secret put TOKEN_SECRET
 
+# Daily re-engagement reminders (routes/reminders.js). UTC: 14:23 is morning
+# in the Americas, afternoon in Europe, evening in India.
+[triggers]
+crons = ["23 14 * * *"]
+
 [vars]
+# Who can open /stats.html and trigger reminders by hand. Comma separated.
+ADMIN_EMAILS = "mishabhi@gmail.com"
 # OAuth 2.0 Web application client ID from console.cloud.google.com.
 # Not a secret — it ships to the browser — so it lives in config, not secrets.
 # Authorized JavaScript origins must include the deployed URL and

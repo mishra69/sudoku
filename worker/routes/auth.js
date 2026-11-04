@@ -6,6 +6,7 @@
 // provider-agnostic and has nothing app-specific in it.
 
 import { verifyIdToken, GOOGLE } from '../lib/oidc.js';
+import { markReturned } from '../lib/activity.js';
 
 export async function handleAuth(path, request, env) {
   // The client needs the OAuth client id to initialise Google's SDK. It isn't
@@ -54,6 +55,11 @@ async function googleSignIn({ credential }, env) {
     claims.name || claims.email || 'Player',
     claims.picture || null
   ).first();
+
+  // Sign-in moves last_seen_at itself, so the hourly throttle in touch() won't
+  // fire afterwards — credit any recent reminder here instead. A lapsed player
+  // tapping a reminder often lands on sign-in first.
+  await markReturned(env, player.id);
 
   const token = await makeToken(player.id, env.TOKEN_SECRET);
   return json({ token, playerId: player.id, name: player.name, picture: player.picture });

@@ -82,7 +82,7 @@ export async function handlePush(path, method, request, playerId, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-function pusher(env) {
+export function pusher(env) {
   return createPusher({
     publicKey: env.VAPID_PUBLIC_KEY,
     privateJwk: env.VAPID_PRIVATE_JWK,

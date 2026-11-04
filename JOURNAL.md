@@ -2,6 +2,17 @@
 
 What we tried, where we stumbled, what we learned. Newest first, ~100 words a day.
 
+## 2026-11-04 — Reminders, and whether they work
+
+A daily job nudges players idle 3+ days, once per absence. The question was
+never "did it send" but "did it bring anyone back who wouldn't have come
+anyway", so a random 20% of lapsed players are held out and tracked the same
+way. Each reminder records delivered → tapped → came back → played; the tap is
+reported by the service worker, since the player tapping is often the one whose
+session expired. Results live at /stats.html.
+
+**Lesson:** a return rate without a control group is a number, not a result.
+
 ## 2026-11-04 — The test push said "Unauthorized"
 
 Push wasn't broken; the session was. Tokens expire 30 days after sign-in, and

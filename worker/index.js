@@ -4,12 +4,19 @@ import { handleGames } from './routes/games.js';
 import { handlePush, handlePushResubscribe } from './routes/push.js';
 import { handlePuzzles } from './routes/puzzles.js';
 import { handleTelemetry } from './routes/telemetry.js';
+import { runReminders, handleReminderClicked, handleReminderAdmin } from './routes/reminders.js';
+import { touch, markPlayed } from './lib/activity.js';
 
 // Static assets are matched before this Worker runs (see [assets] in
 // wrangler.toml), so anything arriving here is an /api/* call or a 404.
 // Frontend and API share an origin, so no CORS handling is needed.
 export default {
-  async fetch(request, env) {
+  // Daily re-engagement job (schedule in wrangler.toml [triggers]).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runReminders(env, 'cron'));
+  },
+
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -25,6 +32,12 @@ export default {
       // The service worker has no token, so endpoint rotation lands here.
       if (apiPath === '/push/resubscribe' && method === 'POST') {
         return await handlePushResubscribe(request, env);
+      }
+
+      // Likewise a tap on a reminder: reported by the service worker, and the
+      // player tapping may well be one whose session has lapsed.
+      if (apiPath === '/push/clicked' && method === 'POST') {
+        return await handleReminderClicked(request, env);
       }
 
       // The VAPID *public* key is public by definition — the browser passes it
@@ -46,7 +59,16 @@ export default {
         return json({ error: 'Unauthorized' }, 401);
       }
 
+      // Looking at the reminder stats is not playing, and must not credit the
+      // admin's own test reminder as a return before it's even tapped.
+      const isAdminPath = apiPath.startsWith('/push/reminders/');
+      if (!isAdminPath) ctx.waitUntil(touch(env, session.id).catch(e => console.error('[touch]', e)));
+
       const res = await route(apiPath, method, request, url, session.id, env);
+
+      // Saving or finishing a game is the strongest sign a reminder worked.
+      const played = method === 'POST' && res.ok && (apiPath === '/scores' || apiPath === '/game/save');
+      if (played) ctx.waitUntil(markPlayed(env, session.id).catch(e => console.error('[played]', e)));
       // Sliding session: past half-life, piggyback a fresh token on whatever
       // response is going out anyway. The client swaps it in silently.
       if (session.renew) {
@@ -64,6 +86,15 @@ export default {
 };
 
 async function route(apiPath, method, request, url, playerId, env) {
+  // Sent once when the app opens signed in. The point is the side effects:
+  // activity is recorded (so a return from a reminder is counted even if they
+  // don't play), and a dead session is noticed straight away.
+  if (apiPath === '/ping') return json({ ok: true });
+
+  if (apiPath.startsWith('/push/reminders/')) {
+    return await handleReminderAdmin(apiPath.slice(5), method, playerId, env);
+  }
+
   if (apiPath === '/scores' || apiPath.startsWith('/scores?')) {
     return await handleScores(method, request, playerId, env);
   }

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminder Stats</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e4e2dc;
+    --good: #1f7a4d; --bad: #b3261e; --accent: #3355cc; --bar: #3355cc; --bar2: #a7a9b4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121214; --card: #1c1c1f; --ink: #ececef; --muted: #9a9aa2; --line: #2c2c31;
+            --good: #5cc98f; --bad: #ff8a80; --accent: #8fa6ff; --bar: #8fa6ff; --bar2: #5a5c66; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  h2 { font-size: 15px; margin: 28px 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .verdict { font-size: 17px; }
+  .verdict b { font-variant-numeric: tabular-nums; }
+  .funnel { display: grid; gap: 10px; }
+  .row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; }
+  .row .lbl { color: var(--muted); font-size: 13px; }
+  .bars { display: grid; gap: 3px; }
+  .bar { height: 18px; border-radius: 4px; background: var(--bar); min-width: 2px; position: relative; }
+  .bar.ctl { background: var(--bar2); }
+  .bar span { position: absolute; left: calc(100% + 6px); top: 0; font-size: 12px; line-height: 18px;
+              white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .ok { color: var(--good); } .err { color: var(--bad); } .dim { color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  button:disabled { opacity: .5; cursor: default; }
+  #msg { margin-top: 10px; font-size: 13px; min-height: 1.2em; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reminder stats</h1>
+  <p class="sub" id="sub">Loading…</p>
+
+  <div id="body" hidden>
+    <div class="card verdict" id="verdict"></div>
+    <div class="actions">
+      <button class="primary" id="btn-test">Send me a test reminder</button>
+      <button id="btn-run">Run the daily job now</button>
+      <button id="btn-refresh">Refresh</button>
+    </div>
+    <div id="msg" class="dim"></div>
+
+    <h2>Does it bring people back?</h2>
+    <div class="card">
+      <div class="funnel" id="funnel"></div>
+      <div class="legend"><span><i style="background:var(--bar)"></i>Reminded</span><span><i style="background:var(--bar2)"></i>Held out (got nothing)</span></div>
+    </div>
+
+    <h2>By message</h2>
+    <div class="card tablewrap"><table id="variants"></table></div>
+
+    <h2>Is the job running?</h2>
+    <div class="card tablewrap"><table id="runs"></table></div>
+
+    <h2>Recent reminders</h2>
+    <div class="card tablewrap"><table id="recent"></table></div>
+  </div>
+</main>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  let token = null;
+  try { token = JSON.parse(localStorage.getItem('sudoku:authToken')); } catch (e) {}
+
+  const pct = (a, n) => n ? Math.round(100 * a / n) + '%' : '—';
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // D1 stores UTC "YYYY-MM-DD HH:MM:SS"; show it in the viewer's time.
+  const when = s => s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const after = (t, from) => {
+    if (!t) return '<span class="dim">—</span>';
+    const h = (new Date(t.replace(' ', 'T') + 'Z') - new Date(from.replace(' ', 'T') + 'Z')) / 36e5;
+    return '<span class="ok">' + (h < 1 ? Math.max(1, Math.round(h * 60)) + 'm' : h < 48 ? Math.round(h) + 'h' : Math.round(h / 24) + 'd') + '</span>';
+  };
+
+  async function api(method, path) {
+    const res = await fetch('/api' + path, { method, headers: { Authorization: 'Bearer ' + token } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { status: res.status });
+    return data;
+  }
+
+  function render(d) {
+    const g = Object.fromEntries(d.groups.map(r => [r.grp, r]));
+    const R = g.reminded || { n: 0 }, H = g.held_out || { n: 0 };
+    const c = d.config;
+    $('sub').innerHTML = `Players idle ${c.idle_days}+ days get one reminder per absence; ${Math.round(c.holdout * 100)}% are held out as a baseline.
+      “Came back” = within ${c.window_days} days. ${d.reachable_players} player(s) have notifications on.`;
+
+    // The headline is lift, and it says plainly when there isn't enough to tell.
+    let v;
+    const rr = R.n ? R.returned / R.n : 0, hr = H.n ? H.returned / H.n : 0;
+    if (!R.n) v = d.pending ? `${d.pending} lapsed player(s) picked up in the last ${c.window_days} days — results show once they’re ${c.window_days} days old.` : 'No reminders yet. The first run will go out at the next scheduled time, or run it now below.';
+    else if (H.n < 5 || R.n < 10) v = `<b>${pct(R.returned, R.n)}</b> of ${R.n} reminded players came back, vs <b>${pct(H.returned, H.n)}</b> of ${H.n} held out. Too few so far to call it — keep watching.`;
+    else {
+      const lift = Math.round(100 * (rr - hr));
+      v = `<b>${pct(R.returned, R.n)}</b> of reminded players came back vs <b>${pct(H.returned, H.n)}</b> held out — reminders ${lift > 0 ? `bring back about <b>${lift}</b> extra players per 100` : 'aren’t beating the baseline'}.`;
+    }
+    if (d.pending && R.n) v += ` <span class="dim">(${d.pending} more still within their window.)</span>`;
+    $('verdict').innerHTML = v;
+
+    const steps = [
+      ['Delivered', 'delivered', false], ['Tapped', 'tapped', false],
+      ['Came back', 'returned', true], ['Played', 'played', true],
+    ];
+    $('funnel').innerHTML = steps.map(([label, k, both]) => {
+      const bar = (grp, cls) => {
+        const p = grp.n ? grp[k] / grp.n : 0;
+        return `<div class="bar ${cls}" style="width:${Math.max(p * 80, 0.5)}%"><span>${pct(grp[k], grp.n)} <span class="dim">(${grp[k] || 0}/${grp.n})</span></span></div>`;
+      };
+      return `<div class="row"><div class="lbl">${label}</div><div class="bars">${bar(R, '')}${both ? bar(H, 'ctl') : ''}</div></div>`;
+    }).join('');
+
+    $('variants').innerHTML = '<tr><th>Message</th><th>Sent</th><th>Tapped</th><th>Came back</th><th>Played</th></tr>' +
+      (d.variants.length ? d.variants.map(r => `<tr><td>${esc(r.variant === 'resume' ? 'Resume saved game' : 'Fresh puzzle')}</td><td>${r.n}</td>
+        <td>${pct(r.tapped, r.n)}</td><td>${pct(r.returned, r.n)}</td><td>${pct(r.played, r.n)}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="dim">Nothing matured yet.</td></tr>');
+
+    $('runs').innerHTML = '<tr><th>When</th><th>By</th><th>Eligible</th><th>Reminded</th><th>Held out</th><th>Devices ok</th><th>Failed</th><th>Pruned</th><th></th></tr>' +
+      (d.runs.length ? d.runs.map(r => `<tr><td>${when(r.ran_at)}</td><td>${esc(r.trigger)}</td><td>${r.eligible}</td><td>${r.reminded}</td><td>${r.held_out}</td>
+        <td>${r.devices_sent}</td><td class="${r.devices_failed ? 'err' : ''}">${r.devices_failed}</td><td>${r.pruned}</td>
+        <td class="err">${esc(r.error || '')}</td></tr>`).join('')
+        : '<tr><td colspan="9" class="dim">The job hasn’t run yet.</td></tr>');
+
+    $('recent').innerHTML = '<tr><th>Sent</th><th>Player</th><th>Idle</th><th>Group</th><th>Delivered</th><th>Tapped</th><th>Came back</th><th>Played</th></tr>' +
+      (d.recent.length ? d.recent.map(r => `<tr><td>${when(r.sent_at)}</td><td>${esc(r.name)}</td><td>${r.idle_days.toFixed(1)}d</td>
+        <td>${r.test ? '<span class="tag">test</span>' : r.held_out ? '<span class="tag">held out</span>' : esc(r.variant)}</td>
+        <td>${r.held_out ? '<span class="dim">—</span>' : r.devices_sent ? `<span class="ok">${r.devices_sent} device(s)</span>` : `<span class="err">failed${r.pruned ? ' (device gone)' : ''}</span>`}</td>
+        <td>${after(r.clicked_at, r.sent_at)}</td><td>${after(r.returned_at, r.sent_at)}</td><td>${after(r.played_at, r.sent_at)}</td></tr>`).join('')
+        : '<tr><td colspan="8" class="dim">None yet.</td></tr>');
+  }
+
+  async function load() {
+    try {
+      render(await api('GET', '/push/reminders/stats'));
+      $('body').hidden = false;
+    } catch (e) {
+      $('sub').innerHTML = e.status === 401 ? 'Your session has expired. <a href="/">Open the app</a>, sign in, then come back.'
+        : e.status === 403 ? 'This page is only for admins.' : 'Couldn’t load stats: ' + esc(e.message);
+    }
+  }
+
+  async function act(btn, path, done) {
+    btn.disabled = true; $('msg').textContent = 'Working…';
+    try { $('msg').textContent = done(await api('POST', path)); await load(); }
+    catch (e) { $('msg').textContent = 'Failed: ' + e.message; }
+    btn.disabled = false;
+  }
+
+  if (!token) { $('sub').innerHTML = 'Not signed in. <a href="/">Open the app</a>, sign in, then come back.'; return; }
+  $('btn-test').onclick = () => act($('btn-test'), '/push/reminders/test', r => r.ok
+    ? `Sent to ${r.devices_sent} device(s). Tap it — the top row of “Recent” should then show Tapped and Came back.`
+    : `Not delivered (${r.devices_failed} failed${r.pruned ? ', device gone — tap the version number in the app to re-subscribe' : ''}).`);
+  $('btn-run').onclick = () => {
+    if (!confirm('Send real reminders to every eligible player now?')) return;
+    act($('btn-run'), '/push/reminders/run', r => `Done: ${r.run.eligible} eligible, ${r.run.reminded} reminded, ${r.run.held_out} held out${r.run.error ? ' — error: ' + r.run.error : ''}.`);
+  };
+  $('btn-refresh').onclick = load;
+  load();
+})();
+</script>
+</body>
+</html>

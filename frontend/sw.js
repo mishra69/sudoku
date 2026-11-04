@@ -71,14 +71,24 @@ self.addEventListener('push', e => {
     icon: n.icon || '/icons/icon-192.png',
     badge: n.badge || '/icons/icon-192.png',
     tag: n.tag || 'sudoku',
-    data: { url: n.navigate || n.url || '/' },
+    data: { url: n.navigate || n.url || '/', reminder: n.reminder || null },
   }));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || '/';
+  const reminder = e.notification.data && e.notification.data.reminder;
   e.waitUntil((async () => {
+    // Report the tap before opening anything: it's the one signal that needs
+    // no session, so it's counted even if the player never gets past sign-in.
+    if (reminder) {
+      await fetch('/api/push/clicked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reminder }),
+      }).catch(() => {});
+    }
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {
       if ('focus' in c) {

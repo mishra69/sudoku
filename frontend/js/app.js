@@ -27,12 +27,19 @@ const App = {
       if (name) document.getElementById('welcome-name').textContent = name;
       UI.showScreen('menu');
       this.maybePromptInstall();
+      this._ping();
       PuzzleCache.refillAll().then(() => this._updateDifficultyAvailability());
     } else {
       UI.showScreen('login');
       Auth.mountButton();
       if (Storage.get('playerId')) this._showLoginNotice('Your session expired — please sign in again.');
     }
+
+    // A notification tap on an app that's still in memory just focuses it —
+    // no reload, no boot — so coming back to the foreground pings too.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this._ping();
+    });
 
     this._bindGlobalEvents();
     this._checkStaleCache();
@@ -55,6 +62,14 @@ const App = {
     if (new URLSearchParams(location.search).get('debug') === '1') {
       this._mountDebugPanel();
     }
+  },
+
+  // At most hourly: the server only records activity hourly anyway.
+  _ping() {
+    if (!API._token || !navigator.onLine) return;
+    if (Date.now() - (this._lastPing || 0) < 60 * 60 * 1000) return;
+    this._lastPing = Date.now();
+    API.ping().catch(() => {});
   },
 
   _showVersion() {
