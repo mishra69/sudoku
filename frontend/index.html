@@ -257,6 +257,16 @@
     </section>
 
     <section class="config-section">
+      <h3>Reminders</h3>
+      <label class="toggle-label">
+        <input type="checkbox" id="setting-reminders" checked />
+        <span class="toggle-switch"></span>
+        <span>Remind me when I haven't played for a few days</span>
+      </label>
+      <p class="config-hint" id="reminders-note" style="display:none;"></p>
+    </section>
+
+    <section class="config-section">
       <h3>Sound</h3>
       <label class="toggle-label">
         <input type="checkbox" id="setting-sound" checked />
@@ -288,6 +298,7 @@
 <script src="/js/ui.js"></script>
 <script src="/js/animations.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/telemetry.js"></script>
 <script src="/js/auth.js"></script>
 <!-- webpush-edge's page half is an ES module, vendored unmodified from the
      worker's node_modules by deploy.sh. Module and classic scripts coexist

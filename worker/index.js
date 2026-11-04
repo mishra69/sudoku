@@ -6,12 +6,14 @@ import { handlePuzzles } from './routes/puzzles.js';
 import { handleTelemetry } from './routes/telemetry.js';
 import { runReminders, handleReminderClicked, handleReminderAdmin } from './routes/reminders.js';
 import { touch, markPlayed } from './lib/activity.js';
+import { handleEvents } from './routes/events.js';
 
 // Static assets are matched before this Worker runs (see [assets] in
 // wrangler.toml), so anything arriving here is an /api/* call or a 404.
 // Frontend and API share an origin, so no CORS handling is needed.
 export default {
-  // Daily re-engagement job (schedule in wrangler.toml [triggers]).
+  // Hourly: each run reminds only players whose local time is the reminder
+  // hour (schedule in wrangler.toml [triggers]).
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runReminders(env, 'cron'));
   },
@@ -86,10 +88,9 @@ export default {
 };
 
 async function route(apiPath, method, request, url, playerId, env) {
-  // Sent once when the app opens signed in. The point is the side effects:
-  // activity is recorded (so a return from a reminder is counted even if they
-  // don't play), and a dead session is noticed straight away.
-  if (apiPath === '/ping') return json({ ok: true });
+  // Telemetry batches go out on every open and every return to the app, which
+  // also makes them the request that records activity and catches a dead session.
+  if (apiPath === '/events') return await handleEvents(method, request, playerId, env);
 
   if (apiPath.startsWith('/push/reminders/')) {
     return await handleReminderAdmin(apiPath.slice(5), method, playerId, env);

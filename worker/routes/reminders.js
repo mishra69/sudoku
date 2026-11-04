@@ -9,7 +9,11 @@
 import { pusher } from './push.js';
 
 const IDLE_DAYS = 3;        // remind after this long without signed-in activity
-const HOLDOUT = 0.2;        // share of lapses that get nothing, as the baseline
+const REMIND_HOUR = 15;     // local hour to send at; her games mostly ended 3-6pm
+// Share of lapses held out as a baseline. Zero while there are two players:
+// holding one out just means she never gets a reminder. With n = 1 the
+// comparison is before vs after, read off the activity timeline.
+const HOLDOUT = 0;
 const MAX_PER_RUN = 25;     // keeps a run inside the Worker's subrequest budget; the rest go tomorrow
 const WINDOW_DAYS = 3;      // "came back" means within this long of the reminder
 
@@ -18,16 +22,29 @@ const MESSAGES = {
   fresh:  { title: 'Sudoku', body: 'A fresh puzzle is waiting for you.' },
 };
 
-// ── The daily job ──────────────────────────────────────────────────────────
+// ── The job ────────────────────────────────────────────────────────────────
 
-export async function runReminders(env, trigger = 'cron') {
+// The local hour for a player now. The zone comes from their device, so this
+// follows them when they travel; unknown zones fall back to DEFAULT_TZ.
+function localHour(tz, fallback) {
+  for (const zone of [tz, fallback, 'UTC']) {
+    if (!zone) continue;
+    try {
+      return Number(new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+    } catch { /* bad zone name: try the next */ }
+  }
+  return new Date().getUTCHours();
+}
+
+// Runs hourly. `anyHour` (the manual button) skips the local-time check.
+export async function runReminders(env, trigger = 'cron', { anyHour = false } = {}) {
   const run = { eligible: 0, reminded: 0, held_out: 0, devices_sent: 0, devices_failed: 0, pruned: 0, error: null };
   try {
     // Lapsed, reachable, and not already counted for this lapse. A reminder
     // (or a hold-out) after their last activity means this lapse is handled:
     // one per absence, never a daily drip.
     const { results } = await env.DB.prepare(
-      `SELECT p.id,
+      `SELECT p.id, p.tz,
               julianday('now') - julianday(p.last_seen_at) AS idle_days,
               EXISTS (SELECT 1 FROM saved_games g WHERE g.player_id = p.id) AS has_saved
        FROM players p
@@ -38,9 +55,12 @@ export async function runReminders(env, trigger = 'cron') {
        ORDER BY p.last_seen_at
        LIMIT ?`
     ).bind(`-${IDLE_DAYS} days`, MAX_PER_RUN).all();
-    run.eligible = results.length;
+    const due = anyHour ? results : results.filter(p => localHour(p.tz, env.DEFAULT_TZ) === REMIND_HOUR);
+    // An hourly run where it's 3pm for nobody isn't worth a row in the log.
+    if (!due.length && !anyHour) return run;
+    run.eligible = due.length;
 
-    for (const p of results) {
+    for (const p of due) {
       const heldOut = Math.random() < HOLDOUT;
       const r = await remind(env, p.id, { idleDays: p.idle_days, variant: p.has_saved ? 'resume' : 'fresh', heldOut });
       if (heldOut) run.held_out++; else run.reminded++;
@@ -72,14 +92,22 @@ async function remind(env, playerId, { idleDays, variant, heldOut, test = false 
   if (heldOut) return out;
 
   const msg = MESSAGES[variant];
-  const result = await pusher(env).send(playerId, {
-    ...msg,
-    navigate: '/',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    tag: 'sudoku-reminder',
-    reminder: id,            // the service worker reports a tap against this
-  }).catch(e => ({ sent: 0, failed: 1, pruned: 0, error: e }));
+  // One player's failure (even a config error that throws synchronously) is
+  // recorded on their row; it must not stop the rest of the run.
+  let result;
+  try {
+    result = await pusher(env).send(playerId, {
+      ...msg,
+      navigate: '/',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: 'sudoku-reminder',
+      reminder: id,            // the service worker reports a tap against this
+    });
+  } catch (e) {
+    console.error('[reminders] send failed', e);
+    result = { sent: 0, failed: 1, pruned: 0 };
+  }
 
   out.devices_sent = result.sent;
   out.devices_failed = result.failed;
@@ -114,7 +142,7 @@ export async function handleReminderAdmin(path, method, playerId, env) {
 
   // Run the real job now, exactly as the cron would.
   if (path === '/reminders/run' && method === 'POST') {
-    return json({ ok: true, run: await runReminders(env, 'manual') });
+    return json({ ok: true, run: await runReminders(env, 'manual', { anyHour: true }) });
   }
 
   // A real reminder to your own devices, marked test so it stays out of the
@@ -179,12 +207,31 @@ async function stats(env) {
      ORDER BY r.sent_at DESC LIMIT 30`
   ).all();
 
+  // Per-player overview and the raw activity timeline: with one or two
+  // players, reading what happened beats any rate.
+  const players = await env.DB.prepare(
+    `SELECT p.id, p.name, p.tz, p.last_seen_at,
+            (SELECT COUNT(*) FROM push_subscriptions s WHERE s.player_id = p.id) AS devices,
+            (SELECT MAX(completed_at) FROM scores s WHERE s.player_id = p.id AND s.completed = 1) AS last_finished,
+            (SELECT updated_at FROM saved_games g WHERE g.player_id = p.id) AS saved_game_at,
+            (SELECT data FROM events e WHERE e.player_id = p.id AND e.type = 'app_open' ORDER BY e.at DESC LIMIT 1) AS last_open
+     FROM players p ORDER BY p.last_seen_at DESC`
+  ).all();
+
+  const events = await env.DB.prepare(
+    `SELECT e.player_id, e.at, e.tz, e.type, e.data FROM events e
+     WHERE e.at > datetime('now', '-60 days')
+     ORDER BY e.at DESC LIMIT 1500`
+  ).all();
+
   const reachable = await env.DB.prepare(
     `SELECT COUNT(DISTINCT player_id) AS n FROM push_subscriptions`
   ).first();
 
   return {
-    config: { idle_days: IDLE_DAYS, holdout: HOLDOUT, window_days: WINDOW_DAYS, max_per_run: MAX_PER_RUN },
+    config: { idle_days: IDLE_DAYS, holdout: HOLDOUT, window_days: WINDOW_DAYS, max_per_run: MAX_PER_RUN, remind_hour: REMIND_HOUR },
+    players: players.results,
+    events: events.results,
     reachable_players: reachable?.n || 0,
     pending: pending?.n || 0,
     groups: groups.results,

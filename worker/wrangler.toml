@@ -15,14 +15,16 @@ database_id = "98f600ee-373a-4c78-b853-0ff49238e109"
 
 # Set TOKEN_SECRET via: wrangler secret put TOKEN_SECRET
 
-# Daily re-engagement reminders (routes/reminders.js). UTC: 14:23 is morning
-# in the Americas, afternoon in Europe, evening in India.
+# Re-engagement reminders (routes/reminders.js). Hourly, because each player
+# is reminded at 3pm in their own time zone, wherever they are.
 [triggers]
-crons = ["23 14 * * *"]
+crons = ["7 * * * *"]
 
 [vars]
 # Who can open /stats.html and trigger reminders by hand. Comma separated.
 ADMIN_EMAILS = "mishabhi@gmail.com"
+# Time zone for players whose device hasn't reported one yet.
+DEFAULT_TZ = "Asia/Kolkata"
 # OAuth 2.0 Web application client ID from console.cloud.google.com.
 # Not a secret — it ships to the browser — so it lives in config, not secrets.
 # Authorized JavaScript origins must include the deployed URL and

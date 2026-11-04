@@ -21,6 +21,7 @@ const SHELL = [
   '/js/ui.js',
   '/js/animations.js',
   '/js/api.js',
+  '/js/telemetry.js',
   '/js/auth.js',
   '/js/app.js',
   '/js/pwa-install.js',

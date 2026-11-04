@@ -87,11 +87,6 @@ const API = {
     Storage.remove('playerPicture');
   },
 
-  // Records that the player opened the app, and surfaces a dead session early.
-  async ping() {
-    return this._rawFetch('POST', '/ping');
-  },
-
   // ── Push ──────────────────────────────────────────────────────────────────
 
   async pushTest() {

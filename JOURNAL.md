@@ -2,16 +2,22 @@
 
 What we tried, where we stumbled, what we learned. Newest first, ~100 words a day.
 
-## 2026-11-04 — Reminders, and whether they work
+## 2026-11-04 — Measuring one player
 
-A daily job nudges players idle 3+ days, once per absence. The question was
-never "did it send" but "did it bring anyone back who wouldn't have come
-anyway", so a random 20% of lapsed players are held out and tracked the same
-way. Each reminder records delivered → tapped → came back → played; the tap is
-reported by the service worker, since the player tapping is often the one whose
-session expired. Results live at /stats.html.
+The real question: why does Mom still prefer the ad-filled app? Asking gets
+"nothing's missing", so the plan is to watch rather than ask. Her data: 13
+Master/Insane games in three weeks (Aug 13 – Sep 4), 30–58 min each, no hints —
+then nothing finished since. One 4-move attempt on Oct 18, and she never had
+notifications on, so nothing could ever call her back.
 
-**Lesson:** a return rate without a control group is a number, not a result.
+Built: session telemetry with the device's time zone (she's in India now),
+reminders at 3pm her time wherever she is, an automatic notification prompt on
+her first tap, 180-day sessions so a return lands in her game, and a timeline
+at /stats.html. Planned a 20% hold-out group, then dropped it: with one player
+it just means she never gets reminded. Experiments are now before/after on her
+own timeline.
+
+**Lesson:** n = 1 isn't a statistics problem, it's an observation problem.
 
 ## 2026-11-04 — The test push said "Unauthorized"
 

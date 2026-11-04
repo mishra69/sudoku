@@ -87,6 +87,9 @@ const Auth = {
       document.getElementById('welcome-name').textContent = data.name;
       // Anything queued while the session was dead can go now.
       Storage.flushQueue();
+      Telemetry.track('sign_in');
+      Telemetry.flush();
+      App.ensurePushSubscription();
       UI.showScreen('menu');
       Sound.tap();
       App.maybePromptInstall();

@@ -27,18 +27,39 @@ const App = {
       if (name) document.getElementById('welcome-name').textContent = name;
       UI.showScreen('menu');
       this.maybePromptInstall();
-      this._ping();
+      this.ensurePushSubscription();
       PuzzleCache.refillAll().then(() => this._updateDifficultyAvailability());
     } else {
       UI.showScreen('login');
       Auth.mountButton();
       if (Storage.get('playerId')) this._showLoginNotice('Your session expired — please sign in again.');
+      // Recorded locally and sent after sign-in: "opened the app, hit the
+      // sign-in wall" is exactly the friction worth knowing about.
+      Telemetry.track('login_screen', { reason: Storage.get('playerId') ? 'expired' : 'new' });
     }
 
-    // A notification tap on an app that's still in memory just focuses it —
-    // no reload, no boot — so coming back to the foreground pings too.
+    Telemetry.track('app_open', {
+      version: CONFIG.VERSION,
+      signedIn: !!API._token,
+      standalone: Telemetry.standalone(),
+      push: Telemetry.pushState(),
+      hasSavedGame: !!Storage.get('hasSavedGame'),
+    });
+    Telemetry.flush();
+    this._bindPushPrompt();
+
+    // Foreground/background bracket each sitting. A notification tap on an app
+    // still in memory only focuses it — no reload — so this is also what
+    // records a return. Going to the background is the last chance to send.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') this._ping();
+      if (document.visibilityState === 'visible') {
+        Telemetry.track('app_foreground', { screen: this._screen() });
+        Telemetry.flush();
+      } else {
+        Telemetry.track('app_background', { screen: this._screen(), ...this._gameSnapshot() });
+        this._flushPraiseLog();
+        Telemetry.flush();
+      }
     });
 
     this._bindGlobalEvents();
@@ -64,12 +85,96 @@ const App = {
     }
   },
 
-  // At most hourly: the server only records activity hourly anyway.
-  _ping() {
-    if (!API._token || !navigator.onLine) return;
-    if (Date.now() - (this._lastPing || 0) < 60 * 60 * 1000) return;
-    this._lastPing = Date.now();
-    API.ping().catch(() => {});
+  _screen() {
+    const el = document.querySelector('.screen.active');
+    return el ? el.id.replace('screen-', '') : null;
+  },
+
+  // Where a game stands, for events that mark leaving or ending it.
+  _gameSnapshot() {
+    const st = Game.state;
+    if (!st || !st.config) return {};
+    return {
+      difficulty: st.config.difficulty,
+      moves: (st.history || []).length,
+      elapsed: Timer.elapsed,
+      mistakes: st.mistakes,
+      hints: st.hints,
+      finished: !!(st.completed || st.gameOver),
+    };
+  },
+
+  // ── Reminders (push) ──────────────────────────────────────────────────────
+  //
+  // On by default. A web app can't grant itself permission: iOS shows its
+  // prompt only from a tap, and only in the home-screen app. So the first tap
+  // on the menu after signing in asks, once; if allowed, the device is
+  // subscribed and the server can reach it from then on.
+
+  _remindersWanted() {
+    return (Storage.get('settings') || {}).reminders !== false;
+  },
+
+  _pushHeaders() {
+    return API._headers();
+  },
+
+  // Silent: (re)register this device when permission already exists. Run on
+  // every signed-in open, so a rotated or lost subscription heals itself.
+  async ensurePushSubscription() {
+    if (!this._remindersWanted() || !window.Push || !API._token) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const r = await Push.subscribe({
+      swPath: '/sw.js?v=' + CONFIG.VERSION,
+      keyUrl: CONFIG.API_BASE + '/push/key',
+      subscribeUrl: CONFIG.API_BASE + '/push/subscribe',
+      prompt: false,
+      headers: this._pushHeaders(),
+    }).catch(e => ({ ok: false, reason: e.message }));
+    if (!r.ok) Telemetry.track('push_subscribe_failed', { reason: r.reason });
+  },
+
+  _bindPushPrompt() {
+    const onTap = (e) => {
+      if (this._screen() !== 'menu' || !API._token || !this._remindersWanted()) return;
+      if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+      if (!window.Push || Push.pushSupport().state !== 'supported') return;
+      // Once a week at most: a dismissed prompt shouldn't greet every visit.
+      if (Date.now() - (Storage.get('pushAskedAt') || 0) < 7 * 864e5) return;
+      Storage.set('pushAskedAt', Date.now());
+      // Called synchronously inside the tap — Safari ignores it otherwise.
+      Notification.requestPermission().then(result => {
+        Telemetry.track('push_prompt', { result, trigger: e.target?.textContent?.trim().slice(0, 30) || null });
+        Telemetry.flush();
+        if (result === 'granted') this.ensurePushSubscription();
+      });
+    };
+    document.addEventListener('click', onTap, true);
+  },
+
+  async _onRemindersToggle(on) {
+    const note = document.getElementById('reminders-note');
+    const say = msg => { if (note) { note.textContent = msg; note.style.display = msg ? 'block' : 'none'; } };
+    say('');
+    Telemetry.track('reminders_setting', { on });
+    if (!window.Push) return;
+    if (!on) {
+      await Push.unsubscribe({ swPath: '/sw.js?v=' + CONFIG.VERSION, unsubscribeUrl: CONFIG.API_BASE + '/push/unsubscribe', headers: this._pushHeaders() }).catch(() => {});
+      return;
+    }
+    const support = Push.pushSupport().state;
+    if (support === 'needs-install') return say('Add Sudoku to your Home Screen and open it from there to get reminders.');
+    if (support === 'blocked') return say('Notifications are turned off for Sudoku in your phone’s Settings.');
+    if (support !== 'supported') return say('This browser can’t show reminders.');
+    // A toggle is a tap, so the prompt (if needed) is allowed here.
+    const r = await Push.subscribe({
+      swPath: '/sw.js?v=' + CONFIG.VERSION,
+      keyUrl: CONFIG.API_BASE + '/push/key',
+      subscribeUrl: CONFIG.API_BASE + '/push/subscribe',
+      headers: this._pushHeaders(),
+    }).catch(e => ({ ok: false, reason: e.message }));
+    Telemetry.track('push_prompt', { result: r.ok ? 'granted' : r.reason, trigger: 'settings' });
+    if (!r.ok) say('Couldn’t turn on reminders (' + r.reason + ').');
   },
 
   _showVersion() {
@@ -365,6 +470,8 @@ const App = {
     this._startAutosave();
     WakeLock.enable();
     this._saveGame(); // persist immediately so Resume works right away
+    Storage.set('hasSavedGame', true);
+    Telemetry.track('game_start', { difficulty: config.difficulty, config });
   },
 
   async resumeGame() {
@@ -379,7 +486,9 @@ const App = {
       Timer.start(saved.elapsed_seconds);
       this._startAutosave();
       WakeLock.enable();
+      Telemetry.track('game_resume', this._gameSnapshot());
     } catch (e) {
+      Telemetry.track('game_resume_failed', { error: String(e.message).slice(0, 100) });
       alert('Could not load saved game: ' + e.message);
     }
   },
@@ -388,6 +497,7 @@ const App = {
 
   pauseGame() {
     Sound.tap();
+    Telemetry.track('game_pause', this._gameSnapshot());
     Timer.stop();
     this._stopAutosave();
     WakeLock.disable();
@@ -411,6 +521,8 @@ const App = {
 
   quitToMenu() {
     Sound.tap();
+    Telemetry.track('game_quit', this._gameSnapshot());
+    Telemetry.flush();
     const overlay = document.getElementById('pause-overlay');
     if (overlay) overlay.style.display = 'none';
     const btn = document.getElementById('btn-pause');
@@ -578,6 +690,9 @@ const App = {
     WakeLock.disable();   // game over — stop holding the screen on
 
     const { state } = Game;
+    Storage.set('hasSavedGame', false);
+    Telemetry.track('game_end', { ...this._gameSnapshot(), completed: !!completed, score: state.score });
+    Telemetry.flush();
 
     if (completed) {
       Animations.confetti();
@@ -631,8 +746,9 @@ const App = {
     const theme    = document.querySelector('input[name="theme"]:checked')?.value || 'light';
     const fontSize = document.querySelector('input[name="font-size"]:checked')?.value || 'medium';
     const sound    = document.getElementById('setting-sound')?.checked ?? true;
+    const reminders = document.getElementById('setting-reminders')?.checked ?? true;
 
-    Storage.set('settings', { theme, fontSize, sound });
+    Storage.set('settings', { theme, fontSize, sound, reminders });
 
     UI.applyTheme(theme);
     UI.applyFontSize(fontSize);
@@ -644,8 +760,10 @@ const App = {
   _bindSettingsControls() {
     const screen = document.getElementById('screen-settings');
     if (!screen) return;
-    screen.querySelectorAll('input[name="theme"], input[name="font-size"], #setting-sound')
+    screen.querySelectorAll('input[name="theme"], input[name="font-size"], #setting-sound, #setting-reminders')
       .forEach(el => el.addEventListener('change', () => this.applySettings()));
+    const rem = document.getElementById('setting-reminders');
+    if (rem) rem.addEventListener('change', () => this._onRemindersToggle(rem.checked));
   },
 
   _syncSettingsUI(settings) {
@@ -659,6 +777,8 @@ const App = {
     }
     const soundChk = document.getElementById('setting-sound');
     if (soundChk) soundChk.checked = settings.sound !== false;
+    const remChk = document.getElementById('setting-reminders');
+    if (remChk) remChk.checked = settings.reminders !== false;
   },
 
   // ── Scoreboard ────────────────────────────────────────────────────────────
@@ -678,6 +798,7 @@ const App = {
 
   logout() {
     API.logout();
+    Storage.remove('events');   // never credit this device's history to the next account
     Auth.signOutHint();   // stop Google silently signing us straight back in
     Timer.stop();
     this._stopAutosave();
@@ -693,6 +814,7 @@ const App = {
   // offline queue and the player's name: they're signing back in as the same
   // person, and whatever failed while signed out is replayed afterwards.
   sessionExpired() {
+    Telemetry.track('session_expired', { screen: this._screen() });
     Timer.stop();
     this._stopAutosave();
     WakeLock.disable();

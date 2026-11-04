@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reminder Stats</title>
+<title>Player Activity</title>
 <style>
   :root {
     --bg: #f7f6f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e4e2dc;
@@ -46,23 +46,44 @@
   #msg { margin-top: 10px; font-size: 13px; min-height: 1.2em; }
   .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
   a { color: var(--accent); }
+  select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .days { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; margin-bottom: 4px; }
+  .days div { aspect-ratio: 1; border-radius: 3px; background: var(--line); }
+  .days .open { background: color-mix(in srgb, var(--bar) 35%, var(--line)); }
+  .days .play { background: color-mix(in srgb, var(--bar) 70%, var(--line)); }
+  .days .done { background: var(--good); }
+  .dayslegend { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  tr.sitting td { border-top: 2px solid var(--line); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Reminder stats</h1>
+  <h1>Player activity</h1>
   <p class="sub" id="sub">Loading…</p>
 
   <div id="body" hidden>
+    <div class="actions" style="margin-top:0"><button id="btn-refresh">Refresh</button></div>
+
+    <h2>Players</h2>
+    <div class="card tablewrap"><table id="players"></table></div>
+
+    <h2>Activity</h2>
+    <div class="card">
+      <div class="actions" style="margin:0 0 10px">
+        <select id="who"></select>
+      </div>
+      <div id="days" class="days"></div>
+      <div class="tablewrap"><table id="timeline"></table></div>
+    </div>
+
+    <h2>Do reminders bring them back?</h2>
     <div class="card verdict" id="verdict"></div>
     <div class="actions">
       <button class="primary" id="btn-test">Send me a test reminder</button>
-      <button id="btn-run">Run the daily job now</button>
-      <button id="btn-refresh">Refresh</button>
+      <button id="btn-run">Run the reminder job now</button>
     </div>
     <div id="msg" class="dim"></div>
-
-    <h2>Does it bring people back?</h2>
+    <div style="height:10px"></div>
     <div class="card">
       <div class="funnel" id="funnel"></div>
       <div class="legend"><span><i style="background:var(--bar)"></i>Reminded</span><span><i style="background:var(--bar2)"></i>Held out (got nothing)</span></div>
@@ -101,17 +122,105 @@
     return data;
   }
 
+  const LABEL = {
+    app_open: 'Opened app', app_foreground: 'Came back to app', app_background: 'Left app',
+    login_screen: 'Saw sign-in screen', sign_in: 'Signed in', session_expired: 'Session expired',
+    game_start: 'Started game', game_resume: 'Resumed game', game_resume_failed: 'Resume failed',
+    game_pause: 'Paused', game_quit: 'Quit to menu', game_end: 'Game over',
+    push_prompt: 'Notification prompt', push_subscribe_failed: 'Notification setup failed',
+    reminders_setting: 'Changed reminder setting',
+  };
+  // Show a time in the zone the device was in when it happened.
+  const local = (iso, tz) => {
+    try { return new Date(iso).toLocaleString([], { timeZone: tz || undefined, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+    catch (e) { return new Date(iso).toLocaleString(); }
+  };
+  const detail = (type, raw) => {
+    let d = {}; try { d = JSON.parse(raw || '{}') || {}; } catch (e) {}
+    const parts = [];
+    if (d.difficulty) parts.push(d.difficulty);
+    if (d.moves != null) parts.push(d.moves + ' moves');
+    if (d.elapsed != null) parts.push(Math.round(d.elapsed / 60) + ' min');
+    if (d.mistakes) parts.push(d.mistakes + ' mistakes');
+    if (type === 'game_end') parts.unshift(d.completed ? '<span class="ok">solved</span>' : '<span class="err">lost</span>');
+    if (d.screen) parts.push('on ' + d.screen);
+    if (d.result) parts.push(esc(d.result));
+    if (d.reason) parts.push(esc(d.reason));
+    if (d.on != null) parts.push(d.on ? 'on' : 'off');
+    if (type === 'app_open') {
+      parts.push(d.standalone ? 'home-screen app' : 'browser tab');
+      if (d.push) parts.push('notifications: ' + esc(d.push.permission) + (d.push.support !== 'supported' ? ' / ' + esc(d.push.support) : ''));
+      if (d.version) parts.push('<span class="dim">v' + esc(d.version) + '</span>');
+    }
+    return parts.join(' · ');
+  };
+
+  function renderActivity(d, pid) {
+    const evs = d.events.filter(e => e.player_id === pid);
+    // Last 30 days, in the player's latest zone: opened / played / solved.
+    const p = d.players.find(x => x.id === pid) || {};
+    const dayKey = (iso, tz) => { try { return new Date(iso).toLocaleDateString('en-CA', { timeZone: tz || undefined }); } catch (e) { return iso.slice(0, 10); } };
+    const marks = {};
+    for (const e of evs) {
+      const k = dayKey(e.at, e.tz || p.tz);
+      const lvl = e.type === 'game_end' && /"completed":true/.test(e.data || '') ? 3 : /^game_/.test(e.type) ? 2 : 1;
+      marks[k] = Math.max(marks[k] || 0, lvl);
+    }
+    const cells = [];
+    for (let i = 29; i >= 0; i--) {
+      const k = dayKey(new Date(Date.now() - i * 864e5).toISOString(), p.tz);
+      const m = marks[k];
+      cells.push(`<div class="${m === 3 ? 'done' : m === 2 ? 'play' : m === 1 ? 'open' : ''}" title="${k}"></div>`);
+    }
+    $('days').innerHTML = cells.join('');
+    $('days').insertAdjacentHTML('afterend', '');
+    const legend = document.querySelector('.dayslegend') || Object.assign(document.createElement('div'), { className: 'dayslegend' });
+    legend.innerHTML = 'Last 30 days — light: opened · mid: played · green: solved a puzzle';
+    $('days').after(legend);
+
+    // Newest first; a gap of 30+ minutes starts a new "sitting".
+    let prev = null;
+    $('timeline').innerHTML = '<tr><th>When (their time)</th><th>What</th><th>Details</th></tr>' + (evs.length ? evs.slice(0, 200).map(e => {
+      const t = new Date(e.at).getTime();
+      const gap = prev !== null && prev - t > 30 * 60 * 1000;
+      prev = t;
+      return `<tr class="${gap ? 'sitting' : ''}"><td>${esc(local(e.at, e.tz))}</td><td>${esc(LABEL[e.type] || e.type)}</td><td>${detail(e.type, e.data)}</td></tr>`;
+    }).join('') : '<tr><td colspan="3" class="dim">No activity recorded yet. It starts with the next time they open the app.</td></tr>');
+  }
+
   function render(d) {
+    // Players overview
+    $('players').innerHTML = '<tr><th>Player</th><th>Time zone</th><th>Last active</th><th>Last solved</th><th>Saved game</th><th>Notifications</th><th>Opens from</th></tr>' +
+      d.players.map(p => {
+        let o = {}; try { o = JSON.parse(p.last_open || '{}') || {}; } catch (e) {}
+        const notif = p.devices ? `<span class="ok">on (${p.devices} device${p.devices > 1 ? 's' : ''})</span>`
+          : o.push ? `<span class="err">off — ${esc(o.push.permission)}${o.push.support && o.push.support !== 'supported' ? ', ' + esc(o.push.support) : ''}</span>` : '<span class="err">off</span>';
+        return `<tr><td>${esc(p.name)}</td><td>${esc(p.tz || '—')}</td><td>${when(p.last_seen_at)}</td><td>${when(p.last_finished)}</td>
+          <td>${when(p.saved_game_at)}</td><td>${notif}</td><td>${o.standalone === undefined ? '<span class="dim">unknown</span>' : o.standalone ? 'home screen' : 'browser tab'}</td></tr>`;
+      }).join('');
+    const who = $('who');
+    if (!who.options.length) {
+      who.innerHTML = d.players.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+      // Default to whoever isn't the admin, since that's who this is for.
+      const me = (() => { try { return JSON.parse(localStorage.getItem('sudoku:playerId')); } catch (e) { return null; } })();
+      const other = d.players.find(p => p.id !== me);
+      if (other) who.value = other.id;
+      who.onchange = () => renderActivity(window.__stats, Number(who.value));
+    }
+    window.__stats = d;
+    renderActivity(d, Number(who.value));
+
     const g = Object.fromEntries(d.groups.map(r => [r.grp, r]));
     const R = g.reminded || { n: 0 }, H = g.held_out || { n: 0 };
     const c = d.config;
-    $('sub').innerHTML = `Players idle ${c.idle_days}+ days get one reminder per absence; ${Math.round(c.holdout * 100)}% are held out as a baseline.
+    $('sub').innerHTML = `Players idle ${c.idle_days}+ days get one reminder per absence, at ${c.remind_hour}:00 their time${c.holdout ? `; ${Math.round(c.holdout * 100)}% are held out as a baseline` : ''}.
       “Came back” = within ${c.window_days} days. ${d.reachable_players} player(s) have notifications on.`;
 
     // The headline is lift, and it says plainly when there isn't enough to tell.
     let v;
     const rr = R.n ? R.returned / R.n : 0, hr = H.n ? H.returned / H.n : 0;
     if (!R.n) v = d.pending ? `${d.pending} lapsed player(s) picked up in the last ${c.window_days} days — results show once they’re ${c.window_days} days old.` : 'No reminders yet. The first run will go out at the next scheduled time, or run it now below.';
+    else if (!c.holdout) v = `<b>${R.returned}</b> of ${R.n} reminder(s) were followed by a return within ${c.window_days} days, and <b>${R.played}</b> by a game. With no hold-out group, judge it against the activity timeline before reminders began.`;
     else if (H.n < 5 || R.n < 10) v = `<b>${pct(R.returned, R.n)}</b> of ${R.n} reminded players came back, vs <b>${pct(H.returned, H.n)}</b> of ${H.n} held out. Too few so far to call it — keep watching.`;
     else {
       const lift = Math.round(100 * (rr - hr));
@@ -129,8 +238,9 @@
         const p = grp.n ? grp[k] / grp.n : 0;
         return `<div class="bar ${cls}" style="width:${Math.max(p * 80, 0.5)}%"><span>${pct(grp[k], grp.n)} <span class="dim">(${grp[k] || 0}/${grp.n})</span></span></div>`;
       };
-      return `<div class="row"><div class="lbl">${label}</div><div class="bars">${bar(R, '')}${both ? bar(H, 'ctl') : ''}</div></div>`;
+      return `<div class="row"><div class="lbl">${label}</div><div class="bars">${bar(R, '')}${both && c.holdout ? bar(H, 'ctl') : ''}</div></div>`;
     }).join('');
+    document.querySelector('.legend').style.display = c.holdout ? '' : 'none';
 
     $('variants').innerHTML = '<tr><th>Message</th><th>Sent</th><th>Tapped</th><th>Came back</th><th>Played</th></tr>' +
       (d.variants.length ? d.variants.map(r => `<tr><td>${esc(r.variant === 'resume' ? 'Resume saved game' : 'Fresh puzzle')}</td><td>${r.n}</td>
@@ -173,7 +283,7 @@
     ? `Sent to ${r.devices_sent} device(s). Tap it — the top row of “Recent” should then show Tapped and Came back.`
     : `Not delivered (${r.devices_failed} failed${r.pruned ? ', device gone — tap the version number in the app to re-subscribe' : ''}).`);
   $('btn-run').onclick = () => {
-    if (!confirm('Send real reminders to every eligible player now?')) return;
+    if (!confirm('Send real reminders now to every eligible player, whatever their local time?')) return;
     act($('btn-run'), '/push/reminders/run', r => `Done: ${r.run.eligible} eligible, ${r.run.reminded} reminded, ${r.run.held_out} held out${r.run.error ? ' — error: ' + r.run.error : ''}.`);
   };
   $('btn-refresh').onclick = load;

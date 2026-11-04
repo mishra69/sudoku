@@ -68,10 +68,11 @@ async function googleSignIn({ credential }, env) {
 // ── Session tokens ────────────────────────────────────────────────────────
 
 // HMAC-signed token: payload.signature
-const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Long, because the moment that matters most is a lapsed player coming back
+// on their own — that should land them in their game, not on a sign-in screen.
+const TOKEN_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 // Tokens are reissued once they're past half-life, so anyone who opens the app
-// at least every couple of weeks never meets the 30-day cliff. Without this the
-// token silently died a month after sign-in and every protected call 401'd.
+// at least every three months is never signed out.
 const RENEW_BELOW_MS = TOKEN_TTL_MS / 2;
 
 export async function makeToken(playerId, secret) {
