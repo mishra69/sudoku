@@ -1,4 +1,4 @@
-import { handleAuth, verifyToken } from './routes/auth.js';
+import { handleAuth, verifyToken, makeToken } from './routes/auth.js';
 import { handleScores } from './routes/scores.js';
 import { handleGames } from './routes/games.js';
 import { handlePush, handlePushResubscribe } from './routes/push.js';
@@ -40,33 +40,21 @@ export default {
       // Protected routes — verify token
       const authHeader = request.headers.get('Authorization') || '';
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-      const playerId = await verifyToken(token, env.TOKEN_SECRET);
+      const session = await verifyToken(token, env.TOKEN_SECRET);
 
-      if (!playerId) {
+      if (!session) {
         return json({ error: 'Unauthorized' }, 401);
       }
 
-      if (apiPath === '/scores' || apiPath.startsWith('/scores?')) {
-        return await handleScores(method, request, playerId, env);
+      const res = await route(apiPath, method, request, url, session.id, env);
+      // Sliding session: past half-life, piggyback a fresh token on whatever
+      // response is going out anyway. The client swaps it in silently.
+      if (session.renew) {
+        const fresh = new Response(res.body, res);
+        fresh.headers.set('X-Session-Token', await makeToken(session.id, env.TOKEN_SECRET));
+        return fresh;
       }
-
-      if (apiPath.startsWith('/game/')) {
-        return await handleGames(method, request, playerId, env);
-      }
-
-      if (apiPath === '/puzzle' || apiPath.startsWith('/puzzle?')) {
-        return await handlePuzzles(method, url, playerId, env);
-      }
-
-      if (apiPath === '/telemetry/praise') {
-        return await handleTelemetry(method, request, playerId, env);
-      }
-
-      if (apiPath.startsWith('/push/')) {
-        return await handlePush(apiPath, method, request, playerId, env);
-      }
-
-      return json({ error: 'Not found' }, 404);
+      return res;
 
     } catch (err) {
       console.error(err);
@@ -74,6 +62,30 @@ export default {
     }
   },
 };
+
+async function route(apiPath, method, request, url, playerId, env) {
+  if (apiPath === '/scores' || apiPath.startsWith('/scores?')) {
+    return await handleScores(method, request, playerId, env);
+  }
+
+  if (apiPath.startsWith('/game/')) {
+    return await handleGames(method, request, playerId, env);
+  }
+
+  if (apiPath === '/puzzle' || apiPath.startsWith('/puzzle?')) {
+    return await handlePuzzles(method, url, playerId, env);
+  }
+
+  if (apiPath === '/telemetry/praise') {
+    return await handleTelemetry(method, request, playerId, env);
+  }
+
+  if (apiPath.startsWith('/push/')) {
+    return await handlePush(apiPath, method, request, playerId, env);
+  }
+
+  return json({ error: 'Not found' }, 404);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -19,6 +19,8 @@ const App = {
     this._syncSettingsUI(settings);
     this._bindSettingsControls();
 
+    API.onSessionExpired = () => this.sessionExpired();
+
     // Try to restore auth
     if (API.loadStoredAuth()) {
       const name = Storage.get('playerName');
@@ -29,6 +31,7 @@ const App = {
     } else {
       UI.showScreen('login');
       Auth.mountButton();
+      if (Storage.get('playerId')) this._showLoginNotice('Your session expired — please sign in again.');
     }
 
     this._bindGlobalEvents();
@@ -669,6 +672,23 @@ const App = {
     if (err) err.style.display = 'none';
     UI.showScreen('login');
     Auth.mountButton();
+  },
+
+  // The server rejected our token mid-session. Unlike logout(), keep the
+  // offline queue and the player's name: they're signing back in as the same
+  // person, and whatever failed while signed out is replayed afterwards.
+  sessionExpired() {
+    Timer.stop();
+    this._stopAutosave();
+    WakeLock.disable();
+    UI.showScreen('login');
+    Auth.mountButton();
+    this._showLoginNotice('Your session expired — please sign in again.');
+  },
+
+  _showLoginNotice(msg) {
+    const err = document.getElementById('login-error');
+    if (err) { err.textContent = msg; err.style.display = 'block'; }
   },
 
   // ── Global event bindings ─────────────────────────────────────────────────

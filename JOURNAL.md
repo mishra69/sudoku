@@ -2,6 +2,18 @@
 
 What we tried, where we stumbled, what we learned. Newest first, ~100 words a day.
 
+## 2026-11-04 — The test push said "Unauthorized"
+
+Push wasn't broken; the session was. Tokens expire 30 days after sign-in, and
+the client only ever checked that one was *stored*, so a month later every save,
+score and test push 401'd quietly while the app looked signed in. Now the
+worker reissues tokens past half-life on any response, the client drops an
+expired token at boot and on any 401, and the offline queue survives to be
+replayed after signing back in.
+
+**Lesson:** an expiry nobody handles is a time bomb with a 30-day fuse — and it
+went off after the feature had been "verified".
+
 ## 2026-09-05 — Praising a hard move
 
 Wanted a compliment when the player cracks a tough spot. Detecting "tough" was

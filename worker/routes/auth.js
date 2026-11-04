@@ -62,12 +62,20 @@ async function googleSignIn({ credential }, env) {
 // ── Session tokens ────────────────────────────────────────────────────────
 
 // HMAC-signed token: payload.signature
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Tokens are reissued once they're past half-life, so anyone who opens the app
+// at least every couple of weeks never meets the 30-day cliff. Without this the
+// token silently died a month after sign-in and every protected call 401'd.
+const RENEW_BELOW_MS = TOKEN_TTL_MS / 2;
+
 export async function makeToken(playerId, secret) {
-  const payload = btoa(JSON.stringify({ id: playerId, exp: Date.now() + 30 * 24 * 60 * 60 * 1000 }));
+  const payload = btoa(JSON.stringify({ id: playerId, exp: Date.now() + TOKEN_TTL_MS }));
   const sig = await hmac(payload, secret);
   return `${payload}.${sig}`;
 }
 
+// Returns { id, renew } — renew is true when the caller should hand back a
+// fresh token — or null if the token is missing, forged, malformed or expired.
 export async function verifyToken(token, secret) {
   if (!token) return null;
   const [payload, sig] = token.split('.');
@@ -76,10 +84,11 @@ export async function verifyToken(token, secret) {
   const expected = await hmac(payload, secret);
   if (expected !== sig) return null;
 
-  const data = JSON.parse(atob(payload));
-  if (data.exp < Date.now()) return null;
+  let data;
+  try { data = JSON.parse(atob(payload)); } catch { return null; }
+  if (!data || typeof data.exp !== 'number' || data.exp < Date.now()) return null;
 
-  return data.id;
+  return { id: data.id, renew: data.exp - Date.now() < RENEW_BELOW_MS };
 }
 
 async function hmac(data, secret) {

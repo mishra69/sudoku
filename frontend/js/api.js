@@ -2,6 +2,8 @@
 
 const API = {
   _token: null,
+  // Set by App: called when the server rejects our session token.
+  onSessionExpired: null,
 
   _headers() {
     const h = { 'Content-Type': 'application/json' };
@@ -15,6 +17,17 @@ const API = {
       headers: this._headers(),
       body: body ? JSON.stringify(body) : undefined,
     });
+    // The server renews tokens past half-life on any authenticated response.
+    const renewed = res.headers.get('X-Session-Token');
+    if (renewed) this._setToken(renewed);
+    // A 401 outside /auth/ means the session is dead (expired, or the signing
+    // secret changed). Before this, the app kept a stale token forever and
+    // every save, score and test push failed with no way out but a logout.
+    if (res.status === 401 && !path.startsWith('/auth/') && this._token) {
+      this._token = null;
+      Storage.remove('authToken');
+      if (this.onSessionExpired) this.onSessionExpired();
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(err.error || res.statusText);
@@ -39,17 +52,31 @@ const API = {
   // Exchange a Google ID token for our own session token.
   async googleSignIn(credential) {
     const data = await this._rawFetch('POST', '/auth/google', { credential });
-    this._token = data.token;
-    Storage.set('authToken', data.token);
+    this._setToken(data.token);
     Storage.set('playerId', data.playerId);
     Storage.set('playerName', data.name);
     if (data.picture) Storage.set('playerPicture', data.picture);
     return data;
   },
 
+  _setToken(token) {
+    this._token = token;
+    Storage.set('authToken', token);
+  },
+
+  // A stored token counts only if it hasn't expired. The payload is plain
+  // base64 JSON, so the expiry is readable here; the server still decides.
   loadStoredAuth() {
-    this._token = Storage.get('authToken');
-    return !!this._token;
+    const token = Storage.get('authToken');
+    let exp = 0;
+    try { exp = JSON.parse(atob(token.split('.')[0])).exp; } catch { /* malformed */ }
+    if (!token || !(exp > Date.now())) {
+      this._token = null;
+      Storage.remove('authToken');
+      return false;
+    }
+    this._token = token;
+    return true;
   },
 
   logout() {

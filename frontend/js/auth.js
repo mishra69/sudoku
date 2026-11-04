@@ -83,7 +83,10 @@ const Auth = {
     const err = document.getElementById('login-error');
     try {
       const data = await API.googleSignIn(response.credential);
+      if (err) err.style.display = 'none';
       document.getElementById('welcome-name').textContent = data.name;
+      // Anything queued while the session was dead can go now.
+      Storage.flushQueue();
       UI.showScreen('menu');
       Sound.tap();
       App.maybePromptInstall();
